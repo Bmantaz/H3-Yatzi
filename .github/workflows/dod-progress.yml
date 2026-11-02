@@ -1,0 +1,58 @@
+name: DoD progress
+
+# Opdaterer et fastgjort "DoD-status"-issue hver gang et issue åbnes/lukkes,
+# så gruppen altid kan se hvor langt de er med Definition of Done.
+
+on:
+  issues:
+    types: [opened, closed, reopened, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: dod-progress
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const TITLE = '📋 DoD-status';
+            const all = (await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'all', per_page: 100 }))
+              .filter(i => !i.pull_request);
+
+            const section = (label) => {
+              const items = all.filter(i => i.labels.some(l => l.name === label))
+                .sort((a, b) => a.number - b.number);
+              const done = items.filter(i => i.state === 'closed').length;
+              const lines = items.map(i => `- [${i.state === 'closed' ? 'x' : ' '}] #${i.number} ${i.title}`);
+              return { done, total: items.length, text: lines.join('\n') || '_Ingen issues endnu._' };
+            };
+
+            const dod = section('dod');
+            const nth = section('nth');
+            const spike = section('spike');
+            const bar = (d, t) => t === 0 ? '' : '🟩'.repeat(d) + '⬜'.repeat(t - d);
+
+            const body = [
+              '_Opdateres automatisk af workflowet **DoD progress**. Redigér ikke manuelt._',
+              '',
+              `## Definition of Done – ${dod.done}/${dod.total}`,
+              bar(dod.done, dod.total), '', dod.text, '',
+              `## Spikes (Det usikre) – ${spike.done}/${spike.total}`, '', spike.text, '',
+              `## Nice to Have – ${nth.done}/${nth.total}`, '', nth.text,
+            ].join('\n');
+
+            const tracker = all.find(i => i.title === TITLE);
+            if (tracker) {
+              if (tracker.body !== body)
+                await github.rest.issues.update({ owner, repo, issue_number: tracker.number, body, state: 'open' });
+            } else {
+              await github.rest.issues.create({ owner, repo, title: TITLE, body });
+            }

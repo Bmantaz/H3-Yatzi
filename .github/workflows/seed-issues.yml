@@ -1,0 +1,69 @@
+name: Seed labels, milestones & issues
+
+# Kør manuelt fra fanen Actions → "Seed labels, milestones & issues" → Run workflow.
+# Opretter labels, milestones og issues fra .github/issues.json.
+# Kan køres igen uden dubletter: eksisterende labels/milestones/issues (samme titel) springes over.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+  actions: write
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('.github/issues.json', 'utf8'));
+            const { owner, repo } = context.repo;
+
+            // Labels
+            const existingLabels = new Set(
+              (await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 }))
+                .map(l => l.name));
+            for (const l of data.labels) {
+              if (existingLabels.has(l.name)) { core.info(`Label findes: ${l.name}`); continue; }
+              await github.rest.issues.createLabel({ owner, repo, ...l });
+              core.info(`Label oprettet: ${l.name}`);
+            }
+
+            // Milestones
+            const milestones = await github.paginate(github.rest.issues.listMilestones, { owner, repo, state: 'all', per_page: 100 });
+            const msByTitle = Object.fromEntries(milestones.map(m => [m.title, m.number]));
+            for (const m of data.milestones) {
+              if (msByTitle[m.title]) { core.info(`Milestone findes: ${m.title}`); continue; }
+              const res = await github.rest.issues.createMilestone({ owner, repo, title: m.title, description: m.description });
+              msByTitle[m.title] = res.data.number;
+              core.info(`Milestone oprettet: ${m.title}`);
+            }
+
+            // Issues
+            const existingIssues = new Set(
+              (await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'all', per_page: 100 }))
+                .filter(i => !i.pull_request)
+                .map(i => i.title));
+            let created = 0;
+            for (const i of data.issues) {
+              if (existingIssues.has(i.title)) { core.info(`Issue findes: ${i.title}`); continue; }
+              await github.rest.issues.create({
+                owner, repo,
+                title: i.title,
+                body: i.body,
+                labels: i.labels,
+                milestone: msByTitle[i.milestone],
+              });
+              created++;
+              core.info(`Issue oprettet: ${i.title}`);
+              await new Promise(r => setTimeout(r, 1000)); // undgå secondary rate limit
+            }
+            // Opdatér DoD-status-issuet
+            await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: 'dod-progress.yml', ref: context.ref });
+            await core.summary.addHeading('Seed færdig').addRaw(`${created} nye issues oprettet.`).write();

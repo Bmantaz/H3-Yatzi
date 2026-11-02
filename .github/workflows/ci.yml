@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: Backend – build & test (.NET 8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore H3Yatzi.sln
+
+      - name: Build
+        run: dotnet build H3Yatzi.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test H3Yatzi.sln --no-build --configuration Release --logger "trx;LogFileName=results.trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+
+  arduino:
+    name: Arduino – compile sketch (MKR WiFi 1010)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: arduino/compile-sketches@v1
+        with:
+          fqbn: arduino:samd:mkrwifi1010
+          sketch-paths: |
+            - arduino/yatzi_controller
+          libraries: |
+            - name: Arduino_MKRIoTCarrier
