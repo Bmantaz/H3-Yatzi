@@ -1,0 +1,302 @@
+{
+  "labels": [
+    {
+      "name": "dod",
+      "color": "0E8A16",
+      "description": "Definition of Done – skal være opfyldt"
+    },
+    {
+      "name": "nth",
+      "color": "FBCA04",
+      "description": "Nice to Have"
+    },
+    {
+      "name": "spike",
+      "color": "D93F0B",
+      "description": "Undersøg et usikkert punkt fra GDD"
+    },
+    {
+      "name": "arduino",
+      "color": "00979D",
+      "description": "Arduino Oplà / sketch"
+    },
+    {
+      "name": "backend",
+      "color": "5319E7",
+      "description": "ASP.NET Core backend / spillogik"
+    },
+    {
+      "name": "frontend",
+      "color": "1D76DB",
+      "description": "Web-frontend"
+    },
+    {
+      "name": "communication",
+      "color": "BFD4F2",
+      "description": "Seriel / MQTT / SignalR"
+    },
+    {
+      "name": "docs",
+      "color": "C5DEF5",
+      "description": "Dokumentation"
+    },
+    {
+      "name": "test",
+      "color": "F9D0C4",
+      "description": "Tests og brugertest"
+    },
+    {
+      "name": "user-test",
+      "color": "E99695",
+      "description": "Feedback fra brugertest"
+    }
+  ],
+  "milestones": [
+    {
+      "title": "DoD – Mellemprojekt",
+      "description": "De 10 krav i Definition of Done for mellemprojektet."
+    },
+    {
+      "title": "Nice to Have",
+      "description": "Nice to Have-udvidelser."
+    },
+    {
+      "title": "Spikes – Det usikre",
+      "description": "Afklar 'Det usikre' fra GDD tidligt."
+    }
+  ],
+  "issues": [
+    {
+      "title": "DoD 1: Game Design Document (GDD)",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "docs"
+      ],
+      "body": "## Mål\nMini-GDD der beskriver spilidé, målgruppe, regler, gameplay loop, styring og feedback.\n\n## Opgaver\n- [ ] Gennemlæs `docs/GDD.md` i gruppen\n- [ ] Opdatér GDD med beslutninger fra spikes (Det usikre)\n- [ ] Tilføj skitse/billede af Opla + skærm"
+    },
+    {
+      "title": "DoD 2: Gameplay loop",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "backend",
+        "frontend"
+      ],
+      "body": "## Mål\nRyst → se terningerne → hold de gode → ryst igen (maks. 3 slag) → vælg felt → giv Oplaen videre.\n\n## Opgaver\n- [ ] Spilleren kan kaste, holde og vælge felt\n- [ ] Hver handling giver synlig feedback\n- [ ] Spilleren kan reagere på resultatet (hold/ryst igen/vælg felt)"
+    },
+    {
+      "title": "DoD 3: Spillets livscyklus (start, spil, slut)",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "backend",
+        "frontend"
+      ],
+      "body": "## Mål\nSpillet kan startes, spilles og afsluttes med tydelige regler og en defineret slutbetingelse (alle 15 felter udfyldt).\n\n## Opgaver\n- [ ] Startskærm med 1–6 spillernavne\n- [ ] Spillet slutter når alle felter er udfyldt\n- [ ] Vinder vises på skærmen\n- [ ] Mulighed for at starte nyt spil"
+    },
+    {
+      "title": "DoD 4: Arduino-controller (ryst + touch)",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "arduino"
+      ],
+      "body": "## Mål\nOplà som fysisk controller – mindst to forskellige handlinger: ryst = kast, touch 1–5 = hold/slip.\n\n## Opgaver\n- [ ] Implementér `arduino/yatzi_controller`\n- [ ] Ryst registreres som ét kast og sendes til backend\n- [ ] Touch 1–5 sendes til backend som hold/slip\n- [ ] Test på hardware med Serial Monitor"
+    },
+    {
+      "title": "DoD 5: Kommunikation Oplà ⇄ backend",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "communication",
+        "arduino",
+        "backend"
+      ],
+      "body": "## Mål\nArduinoen kommunikerer med backend via USB-seriel. Gruppen kan forklare valget og demonstrere kommunikationen.\n\n## Opgaver\n- [ ] Vælg protokol (fx USB-seriel) og beskriv beskedformatet i `docs/protocol.md`\n- [ ] Backend modtager beskeder fra Oplaen (og evt. sender status tilbage)\n- [ ] Begrund valget i `docs/protocol.md`"
+    },
+    {
+      "title": "DoD 6: Backend og spillogik",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "backend"
+      ],
+      "body": "## Mål\nSelvstændig backend der håndterer spillets tilstand og pointberegning/regler.\n\n## Opgaver\n- [ ] Pointberegning for alle 15 felter (`Yatzi.Core`)\n- [ ] Bonus ved ≥ 63 i 1'ere–6'ere\n- [ ] Maks. 3 slag, et felt kan kun bruges én gang\n- [ ] Endpoints som frontend kan bruge"
+    },
+    {
+      "title": "DoD 7: Frontend og feedback",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "frontend"
+      ],
+      "body": "## Mål\nGrafisk frontend der viser terninger, pointtavle og hvis tur det er, med tydelig feedback.\n\n## Opgaver\n- [ ] Terninger ruller med animation\n- [ ] Holdte terninger har grøn kant\n- [ ] Mulige point vises for ledige felter\n- [ ] Fejlbeskeder ved ugyldige handlinger"
+    },
+    {
+      "title": "DoD 8: Integration Arduino + backend + frontend",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "arduino",
+        "backend",
+        "frontend"
+      ],
+      "body": "## Mål\nAlle dele fungerer sammen, og gruppen kan forklare dataflowet.\n\n## Opgaver\n- [ ] Fuldt spil gennemført med Oplaen som eneste input til kast/hold\n- [ ] Tegn dataflow-diagram (se `docs/protocol.md`)\n- [ ] Forbered demo"
+    },
+    {
+      "title": "DoD 9: Brugertest",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "test",
+        "user-test"
+      ],
+      "body": "## Mål\nTestet af mindst én person uden for gruppen; feedback indsamlet og mindst én forbedring gennemført.\n\n## Opgaver\n- [ ] Test med 3–5 personer (forstår de spillet uden forklaring?)\n- [ ] Opret et issue med skabelonen **Brugertest** pr. test\n- [ ] Gennemfør mindst én forbedring og link til issuet"
+    },
+    {
+      "title": "DoD 10: GitHub og præsentation",
+      "milestone": "DoD – Mellemprojekt",
+      "labels": [
+        "dod",
+        "docs"
+      ],
+      "body": "## Mål\nKoden ligger på GitHub, alle har bidraget, og gruppen kan demonstrere og forklare tekniske valg.\n\n## Opgaver\n- [ ] Alle gruppemedlemmer har commits/PR'er\n- [ ] CI er grøn på `main`\n- [ ] Præsentation af tekniske valg (seriel, .NET, frontend)\n- [ ] Demo-plan"
+    },
+    {
+      "title": "NTH: MQTT",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "communication",
+        "arduino",
+        "backend"
+      ],
+      "body": "## Mål\nBrug MQTT med broker, topics og dokumenteret beskedformat mellem Arduino og backend.\n\n## Opgaver\n- [ ] Vælg broker (fx Mosquitto)\n- [ ] Definér topics, fx `yatzi/opla/{id}/input`\n- [ ] WiFiNINA + ArduinoMqttClient på Oplaen\n- [ ] Dokumentér i `docs/protocol.md`"
+    },
+    {
+      "title": "NTH: Highscore og database",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "backend",
+        "frontend"
+      ],
+      "body": "## Mål\nGem spillernes resultater i en database og vis et leaderboard.\n\n## Opgaver\n- [ ] SQLite + EF Core\n- [ ] Gem resultat når spillet slutter\n- [ ] Leaderboard-side"
+    },
+    {
+      "title": "NTH: Multiplayer med flere controllere",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "arduino",
+        "backend"
+      ],
+      "body": "## Mål\nFlere spillere med hver deres Oplà-controller.\n\n## Opgaver\n- [ ] Identificér controller (id i protokollen)\n- [ ] Tilknyt controller til spiller\n- [ ] Kun aktiv spillers controller må kaste"
+    },
+    {
+      "title": "NTH: SignalR",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "communication",
+        "frontend",
+        "backend"
+      ],
+      "body": "## Mål\nRealtidskommunikation mellem backend og frontend i stedet for polling.\n\n## Opgaver\n- [ ] Tilføj SignalR-hub\n- [ ] Push spillets tilstand til frontend ved ændringer\n- [ ] Erstat evt. polling i frontend"
+    },
+    {
+      "title": "NTH: Flere sværhedsgrader",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "backend",
+        "frontend"
+      ],
+      "body": "## Mål\nTilpas spillets regler eller tempo til forskellige spillere.\n\n## Opgaver\n- [ ] Fx børne-tilstand (kun 1'ere–6'ere)\n- [ ] Fx tidsgrænse pr. tur\n- [ ] Vælg sværhedsgrad på startskærmen"
+    },
+    {
+      "title": "NTH: Avancerede sensorer",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "arduino"
+      ],
+      "body": "## Mål\nBrug fx gyroskop, lys eller gestus som en del af styringen.\n\n## Opgaver\n- [ ] Fx vend Oplaen for at bekræfte felt\n- [ ] Fx gestus til at vælge felt"
+    },
+    {
+      "title": "NTH: Arduino-feedback (LED, buzzer, skærm)",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "arduino"
+      ],
+      "body": "## Mål\nOplaens LED'er, buzzer og skærm giver spilleren feedback.\n\n## Opgaver\n- [ ] LED grøn over holdt terning\n- [ ] Buzzer rasler ved kast\n- [ ] Skærm viser \"Slag x/3\"\n- [ ] Verificér LED ↔ touch-mapping"
+    },
+    {
+      "title": "NTH: Animationer og lyde",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "frontend"
+      ],
+      "body": "## Mål\nAnimationer, lydeffekter og andre visuelle forbedringer.\n\n## Opgaver\n- [ ] Lyd ved kast i browseren\n- [ ] Fejring ved YATZY\n- [ ] Bedre terning-grafik (prikker)"
+    },
+    {
+      "title": "NTH: Automatiserede tests",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "test",
+        "backend"
+      ],
+      "body": "## Mål\nAutomatiserede tests af centrale dele af backend/spillogik.\n\n## Opgaver\n- [ ] Tests af pointberegning og regler i `Yatzi.Tests`\n- [ ] Hold CI grøn"
+    },
+    {
+      "title": "NTH: Deployment",
+      "milestone": "Nice to Have",
+      "labels": [
+        "nth",
+        "backend"
+      ],
+      "body": "## Mål\nSpillet kan tilgås og spilles fra andre computere.\n\n## Opgaver\n- [ ] Lyt på LAN (`Urls: http://0.0.0.0:5000`)\n- [ ] Evt. Docker-image\n- [ ] Dokumentér i README"
+    },
+    {
+      "title": "Spike: Rystet – ét ryst = ét kast?",
+      "milestone": "Spikes – Det usikre",
+      "labels": [
+        "spike",
+        "arduino"
+      ],
+      "body": "## Mål\nReagerer sensoren på ét ryst som ét kast – ikke nul eller tre?\n\n## Opgaver\n- [ ] Log accelerations-data over Serial\n- [ ] Find tærskel og pause så ét ryst = ét kast\n- [ ] Test med 3 personer – 10 ryst hver"
+    },
+    {
+      "title": "Spike: Hold – er touch-knapperne pålidelige?",
+      "milestone": "Spikes – Det usikre",
+      "labels": [
+        "spike",
+        "arduino"
+      ],
+      "body": "## Mål\nEr touch-knapperne pålidelige, og kan man se hvilken knap der hører til hvilken terning?\n\n## Opgaver\n- [ ] Test med og uden plastikcase\n- [ ] Find ud af hvilken LED der sidder ved hvilken knap\n- [ ] Evt. mærkater med 1–5 på Oplaen"
+    },
+    {
+      "title": "Spike: Forbindelsen – kommer data stabilt fra Opla til PC?",
+      "milestone": "Spikes – Det usikre",
+      "labels": [
+        "spike",
+        "communication"
+      ],
+      "body": "## Mål\nKommer data stabilt fra Opla til PC?\n\n## Opgaver\n- [ ] Test 15 min. sammenhængende spil\n- [ ] Test genopkobling når USB tages ud/i\n- [ ] Log tabte/ugyldige beskeder"
+    },
+    {
+      "title": "Spike: Valg af felt – mus eller Opla-knapper?",
+      "milestone": "Spikes – Det usikre",
+      "labels": [
+        "spike",
+        "frontend",
+        "user-test"
+      ],
+      "body": "## Mål\nMus på PC eller knapper på Oplaen? Test med 3–5 personer om de forstår spillet uden forklaring.\n\n## Opgaver\n- [ ] Prototype begge løsninger\n- [ ] Brugertest med 3–5 personer\n- [ ] Beslut og opdatér GDD"
+    }
+  ]
+}
