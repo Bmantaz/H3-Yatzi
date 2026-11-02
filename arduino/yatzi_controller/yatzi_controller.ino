@@ -1,19 +1,18 @@
 /*
   H3 Yatzi – Arduino Oplà controller (MKR WiFi 1010 + MKR IoT Carrier)
 
-  Skabelon. Se docs/GDD.md og issues med label "arduino".
+  Filerne er delt op, så vi ikke laver merge-konflikter:
+    shake.h / shake.cpp            – Bjarke: ryst = kast (accelerometer, buzzer, skærm)
+    dice_input.h / dice_input.cpp  – Abdi:   touch 1–5 = hold/slip, hold-status, LED'er
+    yatzi_controller.ino           – samles i S2.2 (seriel-kommunikation med backend)
 
-  Input (DoD 4 – mindst to handlinger):
-    - Ryst Oplaen (accelerometer) = kast
-    - Touch 1-5 = hold/slip terning
-  Output (NTH: Arduino-feedback):
-    - LED'er, buzzer, rund skærm
-
-  Kommunikation med backend (DoD 5): se docs/protocol.md.
+  Protokol: se docs/protocol.md.
   Bibliotek: Arduino_MKRIoTCarrier (Library Manager).
 */
 
 #include <Arduino_MKRIoTCarrier.h>
+#include "shake.h"
+#include "dice_input.h"
 
 MKRIoTCarrier carrier;
 
@@ -21,11 +20,19 @@ void setup() {
   Serial.begin(115200);
   carrier.begin();
 
-  // TODO: initialisér skærm, LED'er m.m.
+  shakeSetup();
+  diceInputSetup();
 }
 
 void loop() {
-  // TODO: læs touch-knapper (carrier.Buttons) og send besked til backend
-  // TODO: læs accelerometer (carrier.IMUmodule) og registrér ryst = kast
-  // TODO: læs beskeder fra backend og opdatér LED'er/skærm
+  if (shakeDetected()) {
+    // TODO (S1.3): send kast-beskeden fra docs/protocol.md
+  }
+
+  int die = diceTouched();  // 1–5, eller 0 hvis ingen knap er trykket
+  if (die > 0) {
+    // TODO (S1.4): send hold-beskeden fra docs/protocol.md
+  }
+
+  // TODO (S2.2): læs status-beskeder fra backend og send dem videre til dice_input/skærm
 }
