@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{E09E2719-D3FB-4116-A54A-25DF4197EC9C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Yatzi.Core", "backend\Yatzi.Core\Yatzi.Core.csproj", "{DB577756-989B-4933-A2EA-2B5787F3F8C0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Yatzi.Api", "backend\Yatzi.Api\Yatzi.Api.csproj", "{BC0329BE-BC0B-4BC4-9665-06A435E8E02C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Yatzi.Tests", "backend\Yatzi.Tests\Yatzi.Tests.csproj", "{F64C33FB-BE6E-4E7C-8F6A-B262DBBDB840}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DB577756-989B-4933-A2EA-2B5787F3F8C0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB577756-989B-4933-A2EA-2B5787F3F8C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB577756-989B-4933-A2EA-2B5787F3F8C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB577756-989B-4933-A2EA-2B5787F3F8C0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BC0329BE-BC0B-4BC4-9665-06A435E8E02C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC0329BE-BC0B-4BC4-9665-06A435E8E02C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC0329BE-BC0B-4BC4-9665-06A435E8E02C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC0329BE-BC0B-4BC4-9665-06A435E8E02C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F64C33FB-BE6E-4E7C-8F6A-B262DBBDB840}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F64C33FB-BE6E-4E7C-8F6A-B262DBBDB840}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F64C33FB-BE6E-4E7C-8F6A-B262DBBDB840}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F64C33FB-BE6E-4E7C-8F6A-B262DBBDB840}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DB577756-989B-4933-A2EA-2B5787F3F8C0} = {E09E2719-D3FB-4116-A54A-25DF4197EC9C}
+		{BC0329BE-BC0B-4BC4-9665-06A435E8E02C} = {E09E2719-D3FB-4116-A54A-25DF4197EC9C}
+		{F64C33FB-BE6E-4E7C-8F6A-B262DBBDB840} = {E09E2719-D3FB-4116-A54A-25DF4197EC9C}
+	EndGlobalSection
+EndGlobal
