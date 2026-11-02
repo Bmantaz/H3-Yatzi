@@ -1,4 +1,10 @@
 {
+  "people": {
+    "Bjarke": "Bmantaz",
+    "Andreas": "Zikka1987",
+    "Frederik": "Juuul999",
+    "Abdi": "AssisDk"
+  },
   "labels": [
     {
       "name": "dod",
@@ -49,254 +55,626 @@
       "name": "user-test",
       "color": "E99695",
       "description": "Feedback fra brugertest"
+    },
+    {
+      "name": "sprint-task",
+      "color": "0052CC",
+      "description": "Opgave i en sprint"
+    },
+    {
+      "name": "epic",
+      "color": "3E4B9E",
+      "description": "Overordnet DoD-krav – lukkes når sprint-opgaverne er færdige"
+    },
+    {
+      "name": "i-gang",
+      "color": "FBCA04",
+      "description": "Sættes automatisk når en PR linker til issuet"
+    },
+    {
+      "name": "backlog",
+      "color": "EDEDED",
+      "description": "Kun hvis der er tid tilovers"
     }
   ],
   "milestones": [
     {
+      "title": "Sprint 1 – Fundament",
+      "due_on": "2026-11-04T12:00:00Z",
+      "description": "Tir 3. – ons 4. nov. Hver del virker for sig, og protokollen er aftalt tirsdag formiddag."
+    },
+    {
+      "title": "Sprint 2 – Integration",
+      "due_on": "2026-11-06T12:00:00Z",
+      "description": "Tor 5. – fre 6. nov. Mindste spilbare version virker hele vejen: ryst → terninger på skærmen → hold → 3 slag. Integrationstest fredag."
+    },
+    {
+      "title": "Sprint 3 – Færdigt spil + brugertest",
+      "due_on": "2026-11-10T12:00:00Z",
+      "description": "Man 9. – tir 10. nov. Helt spil fra start til vinder, brugertestet og klar til demo tirsdag."
+    },
+    {
       "title": "DoD – Mellemprojekt",
-      "description": "De 10 krav i Definition of Done for mellemprojektet."
+      "description": "De 10 krav i Definition of Done. Overblik – arbejdet sker i sprint-opgaverne."
     },
     {
       "title": "Nice to Have",
-      "description": "Nice to Have-udvidelser."
-    },
-    {
-      "title": "Spikes – Det usikre",
-      "description": "Afklar 'Det usikre' fra GDD tidligt."
+      "description": "Backlog – tages kun hvis en sprint bliver færdig før tid."
     }
   ],
   "issues": [
     {
+      "key": "DOD1",
       "title": "DoD 1: Game Design Document (GDD)",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "docs"
+        "epic"
       ],
-      "body": "## Mål\nMini-GDD der beskriver spilidé, målgruppe, regler, gameplay loop, styring og feedback.\n\n## Opgaver\n- [ ] Gennemlæs `docs/GDD.md` i gruppen\n- [ ] Opdatér GDD med beslutninger fra spikes (Det usikre)\n- [ ] Tilføj skitse/billede af Opla + skærm"
+      "managed": "epic"
     },
     {
+      "key": "DOD2",
       "title": "DoD 2: Gameplay loop",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "backend",
-        "frontend"
+        "epic"
       ],
-      "body": "## Mål\nRyst → se terningerne → hold de gode → ryst igen (maks. 3 slag) → vælg felt → giv Oplaen videre.\n\n## Opgaver\n- [ ] Spilleren kan kaste, holde og vælge felt\n- [ ] Hver handling giver synlig feedback\n- [ ] Spilleren kan reagere på resultatet (hold/ryst igen/vælg felt)"
+      "managed": "epic"
     },
     {
+      "key": "DOD3",
       "title": "DoD 3: Spillets livscyklus (start, spil, slut)",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "backend",
-        "frontend"
+        "epic"
       ],
-      "body": "## Mål\nSpillet kan startes, spilles og afsluttes med tydelige regler og en defineret slutbetingelse (alle 15 felter udfyldt).\n\n## Opgaver\n- [ ] Startskærm med 1–6 spillernavne\n- [ ] Spillet slutter når alle felter er udfyldt\n- [ ] Vinder vises på skærmen\n- [ ] Mulighed for at starte nyt spil"
+      "managed": "epic"
     },
     {
+      "key": "DOD4",
       "title": "DoD 4: Arduino-controller (ryst + touch)",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "arduino"
+        "epic"
       ],
-      "body": "## Mål\nOplà som fysisk controller – mindst to forskellige handlinger: ryst = kast, touch 1–5 = hold/slip.\n\n## Opgaver\n- [ ] Implementér `arduino/yatzi_controller`\n- [ ] Ryst registreres som ét kast og sendes til backend\n- [ ] Touch 1–5 sendes til backend som hold/slip\n- [ ] Test på hardware med Serial Monitor"
+      "managed": "epic"
     },
     {
+      "key": "DOD5",
       "title": "DoD 5: Kommunikation Oplà ⇄ backend",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "communication",
-        "arduino",
-        "backend"
+        "epic"
       ],
-      "body": "## Mål\nArduinoen kommunikerer med backend via USB-seriel. Gruppen kan forklare valget og demonstrere kommunikationen.\n\n## Opgaver\n- [ ] Vælg protokol (fx USB-seriel) og beskriv beskedformatet i `docs/protocol.md`\n- [ ] Backend modtager beskeder fra Oplaen (og evt. sender status tilbage)\n- [ ] Begrund valget i `docs/protocol.md`"
+      "managed": "epic"
     },
     {
+      "key": "DOD6",
       "title": "DoD 6: Backend og spillogik",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "backend"
+        "epic"
       ],
-      "body": "## Mål\nSelvstændig backend der håndterer spillets tilstand og pointberegning/regler.\n\n## Opgaver\n- [ ] Pointberegning for alle 15 felter (`Yatzi.Core`)\n- [ ] Bonus ved ≥ 63 i 1'ere–6'ere\n- [ ] Maks. 3 slag, et felt kan kun bruges én gang\n- [ ] Endpoints som frontend kan bruge"
+      "managed": "epic"
     },
     {
+      "key": "DOD7",
       "title": "DoD 7: Frontend og feedback",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "frontend"
+        "epic"
       ],
-      "body": "## Mål\nGrafisk frontend der viser terninger, pointtavle og hvis tur det er, med tydelig feedback.\n\n## Opgaver\n- [ ] Terninger ruller med animation\n- [ ] Holdte terninger har grøn kant\n- [ ] Mulige point vises for ledige felter\n- [ ] Fejlbeskeder ved ugyldige handlinger"
+      "managed": "epic"
     },
     {
+      "key": "DOD8",
       "title": "DoD 8: Integration Arduino + backend + frontend",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "arduino",
-        "backend",
-        "frontend"
+        "epic"
       ],
-      "body": "## Mål\nAlle dele fungerer sammen, og gruppen kan forklare dataflowet.\n\n## Opgaver\n- [ ] Fuldt spil gennemført med Oplaen som eneste input til kast/hold\n- [ ] Tegn dataflow-diagram (se `docs/protocol.md`)\n- [ ] Forbered demo"
+      "managed": "epic"
     },
     {
+      "key": "DOD9",
       "title": "DoD 9: Brugertest",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "test",
-        "user-test"
+        "epic"
       ],
-      "body": "## Mål\nTestet af mindst én person uden for gruppen; feedback indsamlet og mindst én forbedring gennemført.\n\n## Opgaver\n- [ ] Test med 3–5 personer (forstår de spillet uden forklaring?)\n- [ ] Opret et issue med skabelonen **Brugertest** pr. test\n- [ ] Gennemfør mindst én forbedring og link til issuet"
+      "managed": "epic"
     },
     {
+      "key": "DOD10",
       "title": "DoD 10: GitHub og præsentation",
       "milestone": "DoD – Mellemprojekt",
       "labels": [
-        "dod",
-        "docs"
+        "epic"
       ],
-      "body": "## Mål\nKoden ligger på GitHub, alle har bidraget, og gruppen kan demonstrere og forklare tekniske valg.\n\n## Opgaver\n- [ ] Alle gruppemedlemmer har commits/PR'er\n- [ ] CI er grøn på `main`\n- [ ] Præsentation af tekniske valg (seriel, .NET, frontend)\n- [ ] Demo-plan"
+      "managed": "epic"
     },
     {
+      "key": "NTH_10",
       "title": "NTH: MQTT",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "communication",
-        "arduino",
-        "backend"
+        "backlog"
       ],
-      "body": "## Mål\nBrug MQTT med broker, topics og dokumenteret beskedformat mellem Arduino og backend.\n\n## Opgaver\n- [ ] Vælg broker (fx Mosquitto)\n- [ ] Definér topics, fx `yatzi/opla/{id}/input`\n- [ ] WiFiNINA + ArduinoMqttClient på Oplaen\n- [ ] Dokumentér i `docs/protocol.md`"
+      "managed": "existing"
     },
     {
+      "key": "NTH_11",
       "title": "NTH: Highscore og database",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "backend",
-        "frontend"
+        "backlog"
       ],
-      "body": "## Mål\nGem spillernes resultater i en database og vis et leaderboard.\n\n## Opgaver\n- [ ] SQLite + EF Core\n- [ ] Gem resultat når spillet slutter\n- [ ] Leaderboard-side"
+      "managed": "existing"
     },
     {
+      "key": "NTH_12",
       "title": "NTH: Multiplayer med flere controllere",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "arduino",
-        "backend"
+        "backlog"
       ],
-      "body": "## Mål\nFlere spillere med hver deres Oplà-controller.\n\n## Opgaver\n- [ ] Identificér controller (id i protokollen)\n- [ ] Tilknyt controller til spiller\n- [ ] Kun aktiv spillers controller må kaste"
+      "managed": "existing"
     },
     {
+      "key": "NTH_13",
       "title": "NTH: SignalR",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "communication",
-        "frontend",
-        "backend"
+        "backlog"
       ],
-      "body": "## Mål\nRealtidskommunikation mellem backend og frontend i stedet for polling.\n\n## Opgaver\n- [ ] Tilføj SignalR-hub\n- [ ] Push spillets tilstand til frontend ved ændringer\n- [ ] Erstat evt. polling i frontend"
+      "managed": "existing"
     },
     {
+      "key": "NTH_14",
       "title": "NTH: Flere sværhedsgrader",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "backend",
-        "frontend"
+        "backlog"
       ],
-      "body": "## Mål\nTilpas spillets regler eller tempo til forskellige spillere.\n\n## Opgaver\n- [ ] Fx børne-tilstand (kun 1'ere–6'ere)\n- [ ] Fx tidsgrænse pr. tur\n- [ ] Vælg sværhedsgrad på startskærmen"
+      "managed": "existing"
     },
     {
+      "key": "NTH_15",
       "title": "NTH: Avancerede sensorer",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "arduino"
+        "backlog"
       ],
-      "body": "## Mål\nBrug fx gyroskop, lys eller gestus som en del af styringen.\n\n## Opgaver\n- [ ] Fx vend Oplaen for at bekræfte felt\n- [ ] Fx gestus til at vælge felt"
+      "managed": "existing"
     },
     {
+      "key": "NTH_FB",
       "title": "NTH: Arduino-feedback (LED, buzzer, skærm)",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "arduino"
+        "backlog"
       ],
-      "body": "## Mål\nOplaens LED'er, buzzer og skærm giver spilleren feedback.\n\n## Opgaver\n- [ ] LED grøn over holdt terning\n- [ ] Buzzer rasler ved kast\n- [ ] Skærm viser \"Slag x/3\"\n- [ ] Verificér LED ↔ touch-mapping"
+      "managed": "existing"
     },
     {
+      "key": "NTH_17",
       "title": "NTH: Animationer og lyde",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "frontend"
+        "backlog"
       ],
-      "body": "## Mål\nAnimationer, lydeffekter og andre visuelle forbedringer.\n\n## Opgaver\n- [ ] Lyd ved kast i browseren\n- [ ] Fejring ved YATZY\n- [ ] Bedre terning-grafik (prikker)"
+      "managed": "existing"
     },
     {
+      "key": "NTH_18",
       "title": "NTH: Automatiserede tests",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "test",
-        "backend"
+        "backlog"
       ],
-      "body": "## Mål\nAutomatiserede tests af centrale dele af backend/spillogik.\n\n## Opgaver\n- [ ] Tests af pointberegning og regler i `Yatzi.Tests`\n- [ ] Hold CI grøn"
+      "managed": "existing"
     },
     {
+      "key": "NTH_19",
       "title": "NTH: Deployment",
       "milestone": "Nice to Have",
       "labels": [
-        "nth",
-        "backend"
+        "backlog"
       ],
-      "body": "## Mål\nSpillet kan tilgås og spilles fra andre computere.\n\n## Opgaver\n- [ ] Lyt på LAN (`Urls: http://0.0.0.0:5000`)\n- [ ] Evt. Docker-image\n- [ ] Dokumentér i README"
+      "managed": "existing"
     },
     {
-      "title": "Spike: Rystet – ét ryst = ét kast?",
-      "milestone": "Spikes – Det usikre",
+      "key": "S1.1",
+      "title": "[S1.1] Aftal protokol Oplà ⇄ backend",
+      "milestone": "Sprint 1 – Fundament",
       "labels": [
-        "spike",
+        "sprint-task",
+        "communication",
+        "docs"
+      ],
+      "assignees": [
+        "Bjarke",
+        "Andreas",
+        "Abdi"
+      ],
+      "body": "<!-- key: S1.1 -->\n<!-- due: 2026-11-03 -->\n\n**Ansvarlig:** Bjarke (med Andreas, Abdi)\n**Deadline:** tir 3/11\n\n**Bidrager til:** {{DOD5}}\n\n## Mål\nGruppen er enige om beskederne mellem Oplaen og backend, så alle kan bygge mod det samme fra dag 1.\n\n## Opgaver\n- [ ] Vælg transport (forslag: USB-seriel, 115200 baud)\n- [ ] Beskeder Oplà → backend: kast, hold/slip terning n\n- [ ] Beskeder backend → Oplà: status (slag brugt, holdte terninger)\n- [ ] Udfyld `docs/protocol.md` og få godkendelse fra Andreas og Abdi\n\n## Færdig når\n`docs/protocol.md` er udfyldt og merged **tirsdag inden frokost**.",
+      "managed": "create"
+    },
+    {
+      "key": "S1.2",
+      "title": "[S1.2] Læs accelerometer og log data over Serial",
+      "milestone": "Sprint 1 – Fundament",
+      "labels": [
+        "sprint-task",
         "arduino"
       ],
-      "body": "## Mål\nReagerer sensoren på ét ryst som ét kast – ikke nul eller tre?\n\n## Opgaver\n- [ ] Log accelerations-data over Serial\n- [ ] Find tærskel og pause så ét ryst = ét kast\n- [ ] Test med 3 personer – 10 ryst hver"
+      "assignees": [
+        "Bjarke"
+      ],
+      "body": "<!-- key: S1.2 -->\n<!-- due: 2026-11-03 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** tir 3/11\n\n**Bidrager til:** {{DOD4}}\n\n## Mål\nForstå hvordan et ryst ser ud i data, før vi laver detektionen.\n\n## Opgaver\n- [ ] Læs x/y/z fra `carrier.IMUmodule` i `shake.cpp`\n- [ ] Log data i Serial Plotter mens I ryster\n- [ ] Notér typiske værdier for rolig vs. ryst i issuet\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S1.3",
+      "title": "[S1.3] Ryst-detektion: ét ryst = ét kast",
+      "milestone": "Sprint 1 – Fundament",
+      "labels": [
+        "sprint-task",
+        "arduino"
+      ],
+      "assignees": [
+        "Bjarke"
+      ],
+      "body": "<!-- key: S1.3 -->\n<!-- due: 2026-11-04 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** ons 4/11\n\n**Afhænger af:** {{S1.1}}, {{S1.2}}\n**Bidrager til:** {{DOD4}}\n\n## Mål\nÉt ryst giver præcis ét kast – ikke nul eller tre.\n\n## Opgaver\n- [ ] Implementér `shakeDetected()` i `shake.cpp`\n- [ ] Tærskel + pause (cooldown) mellem kast\n- [ ] Send kast-beskeden fra protokollen\n- [ ] Test: 10 ryst = 10 kast\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S1.4",
+      "title": "[S1.4] Touch 1–5 sendes som hold/slip",
+      "milestone": "Sprint 1 – Fundament",
+      "labels": [
+        "sprint-task",
+        "arduino"
+      ],
+      "assignees": [
+        "Abdi"
+      ],
+      "body": "<!-- key: S1.4 -->\n<!-- due: 2026-11-03 -->\n\n**Ansvarlig:** Abdi\n**Deadline:** tir 3/11\n\n**Afhænger af:** {{S1.1}}\n**Bidrager til:** {{DOD4}}\n\n## Mål\nHver touch-knap svarer til én terning.\n\n## Opgaver\n- [ ] Læs TOUCH0–TOUCH4 i `dice_input.cpp`\n- [ ] Send hold-beskeden fra protokollen med terningens nummer\n- [ ] Test med og uden plastikcase\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S1.5",
+      "title": "[S1.5] Hold-status pr. terning + grøn LED",
+      "milestone": "Sprint 1 – Fundament",
+      "labels": [
+        "sprint-task",
+        "arduino"
+      ],
+      "assignees": [
+        "Abdi"
+      ],
+      "body": "<!-- key: S1.5 -->\n<!-- due: 2026-11-04 -->\n\n**Ansvarlig:** Abdi\n**Deadline:** ons 4/11\n\n**Afhænger af:** {{S1.4}}\n**Bidrager til:** {{DOD4}}\n\n## Mål\nOplaen husker hvilke terninger der holdes og viser det med LED'erne.\n\n## Opgaver\n- [ ] Gem hold-status for de 5 terninger i `dice_input.cpp`\n- [ ] Tryk igen = slip\n- [ ] Find ud af hvilken LED der sidder ved hvilken knap\n- [ ] Grøn LED over holdt terning\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S1.6",
+      "title": "[S1.6] Yatzi.Core: terninger, kast, hold, maks. 3 slag + tests",
+      "milestone": "Sprint 1 – Fundament",
+      "labels": [
+        "sprint-task",
+        "backend",
+        "test"
+      ],
+      "assignees": [
+        "Andreas"
+      ],
+      "body": "<!-- key: S1.6 -->\n<!-- due: 2026-11-03 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** tir 3/11\n\n**Bidrager til:** {{DOD6}}\n\n## Mål\nGrundlogikken for en tur virker og er testet.\n\n## Opgaver\n- [ ] 5 terninger med værdier 1–6\n- [ ] Kast slår kun de ikke-holdte terninger\n- [ ] Hold/slip terning\n- [ ] Maks. 3 slag pr. tur\n- [ ] xUnit-tests for ovenstående\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S1.7",
+      "title": "[S1.7] API: nyt spil, kast, hold, hent tilstand",
+      "milestone": "Sprint 1 – Fundament",
+      "labels": [
+        "sprint-task",
+        "backend"
+      ],
+      "assignees": [
+        "Andreas"
+      ],
+      "body": "<!-- key: S1.7 -->\n<!-- due: 2026-11-04 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** ons 4/11\n\n**Afhænger af:** {{S1.6}}\n**Bidrager til:** {{DOD6}}\n\n## Mål\nFrontend kan styre en tur via HTTP.\n\n## Opgaver\n- [ ] `POST /api/game/new`\n- [ ] `POST /api/game/roll`\n- [ ] `POST /api/game/hold/{n}`\n- [ ] `GET /api/game`\n- [ ] Del JSON-formatet med Frederik\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S1.8",
+      "title": "[S1.8] Frontend-layout: startskærm, 5 terninger, \"Slag x/3\"",
+      "milestone": "Sprint 1 – Fundament",
+      "labels": [
+        "sprint-task",
+        "frontend"
+      ],
+      "assignees": [
+        "Frederik"
+      ],
+      "body": "<!-- key: S1.8 -->\n<!-- due: 2026-11-03 -->\n\n**Ansvarlig:** Frederik\n**Deadline:** tir 3/11\n\n**Bidrager til:** {{DOD7}}\n\n## Mål\nDen grundlæggende skærm står klar.\n\n## Opgaver\n- [ ] Startskærm med felt til spillernavne\n- [ ] 5 terninger (kan klikkes for at holde)\n- [ ] Visning af \"Slag x/3\"\n- [ ] Kast-knap som reserve for Oplaen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S1.9",
+      "title": "[S1.9] Frontend henter tilstand fra API",
+      "milestone": "Sprint 1 – Fundament",
+      "labels": [
+        "sprint-task",
+        "frontend"
+      ],
+      "assignees": [
+        "Frederik"
+      ],
+      "body": "<!-- key: S1.9 -->\n<!-- due: 2026-11-04 -->\n\n**Ansvarlig:** Frederik\n**Deadline:** ons 4/11\n\n**Afhænger af:** {{S1.7}}, {{S1.8}}\n**Bidrager til:** {{DOD7}}\n\n## Mål\nSkærmen viser den rigtige tilstand fra backend.\n\n## Opgaver\n- [ ] Brug mock-data indtil S1.7 er klar\n- [ ] Skift til rigtige kald mod `/api/game`\n- [ ] Holdte terninger får grøn kant\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.1",
+      "title": "[S2.1] Seriel-læser i backend",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "backend",
+        "communication"
+      ],
+      "assignees": [
+        "Andreas"
+      ],
+      "body": "<!-- key: S2.1 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.1}}, {{S1.7}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nBeskeder fra Oplaen styrer spillet, og backend sender status tilbage.\n\n## Opgaver\n- [ ] Background service der læser seriel-porten\n- [ ] Kast-besked → kast, hold-besked → hold\n- [ ] Send status tilbage ved hver ændring\n- [ ] Port sættes i `appsettings.json`\n- [ ] Ugyldigt input ignoreres og logges\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.2",
+      "title": "[S2.2] Saml ryst + touch i én sketch og modtag status",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "arduino",
+        "communication"
+      ],
+      "assignees": [
+        "Bjarke"
+      ],
+      "body": "<!-- key: S2.2 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.3}}, {{S1.5}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nÉn sketch med både ryst og touch, der også lytter på backend. Abdi reviewer PR'en.\n\n## Opgaver\n- [ ] Kald `shake` og `dice_input` fra `yatzi_controller.ino`\n- [ ] Læs status-beskeder fra backend\n- [ ] Del status videre til `dice_input` (LED) og skærm\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.3",
+      "title": "[S2.3] LED'er følger status fra backend",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "arduino"
+      ],
+      "assignees": [
+        "Abdi"
+      ],
+      "body": "<!-- key: S2.3 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Abdi\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S2.2}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nLED'erne viser altid det samme som skærmen – også ved ny tur.\n\n## Opgaver\n- [ ] LED-status sættes ud fra backend (ikke kun lokalt)\n- [ ] Alle LED'er slukkes ved ny tur\n- [ ] Test: hold på PC'en → LED på Oplaen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.4",
+      "title": "[S2.4] Buzzer-rasl ved kast + skærm viser \"Slag x/3\"",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "arduino"
+      ],
+      "assignees": [
+        "Bjarke"
+      ],
+      "body": "<!-- key: S2.4 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.2}}\n**Bidrager til:** {{NTH_FB}}\n\n## Mål\nSpilleren får feedback direkte på Oplaen.\n\n## Opgaver\n- [ ] Kort rasle-lyd ved kast\n- [ ] Rund skærm viser \"Slag x/3\" ud fra status\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.5",
+      "title": "[S2.5] Pointberegning for alle 15 felter + bonus",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "backend",
+        "test"
+      ],
+      "assignees": [
+        "Andreas"
+      ],
+      "body": "<!-- key: S2.5 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.6}}\n**Bidrager til:** {{DOD6}}\n\n## Mål\nPointtavlen regner rigtigt efter vores papir-tavle.\n\n## Opgaver\n- [ ] 1'ere–6'ere, 1 par, 2 par, 3 ens, 4 ens\n- [ ] Lille/stor straight, hus, chance, YATZY\n- [ ] Bonus 50 ved ≥ 63\n- [ ] Placér/stryg felt, et felt kun én gang\n- [ ] Tests for hvert felt\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.6",
+      "title": "[S2.6] Pointtavle: 1–6 spillere, mulige point, vælg felt",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "frontend"
+      ],
+      "assignees": [
+        "Frederik"
+      ],
+      "body": "<!-- key: S2.6 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Frederik\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.5}}, {{S1.9}}\n**Bidrager til:** {{DOD7}}\n\n## Mål\nSpilleren kan se og vælge felt på pointtavlen.\n\n## Opgaver\n- [ ] Pointtavle med en kolonne pr. spiller\n- [ ] Vis mulige point for ledige felter\n- [ ] Vælg felt med musen (bekræft ved 0 point)\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.7",
+      "title": "[S2.7] Live-opdatering af skærmen",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "frontend"
+      ],
+      "assignees": [
+        "Frederik"
+      ],
+      "body": "<!-- key: S2.7 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Frederik\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.9}}\n**Bidrager til:** {{DOD7}}\n\n## Mål\nInput fra Oplaen vises på skærmen med det samme.\n\n## Opgaver\n- [ ] Hent tilstand løbende (polling) eller SignalR\n- [ ] Kast-animation når terningerne ændrer sig\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.8",
+      "title": "[S2.8] Integrationstest: spil en hel tur kun med Oplaen",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "test"
+      ],
+      "assignees": [
+        "Andreas",
+        "Bjarke",
+        "Frederik",
+        "Abdi"
+      ],
+      "body": "<!-- key: S2.8 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Andreas (med Bjarke, Frederik, Abdi)\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.1}}, {{S2.2}}, {{S2.3}}, {{S2.6}}, {{S2.7}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nFredag eftermiddag virker den mindste spilbare version hele vejen igennem.\n\n## Opgaver\n- [ ] Ryst → terninger på skærmen\n- [ ] Touch → holdt terning på skærm + LED\n- [ ] 3 slag → vælg felt\n- [ ] Notér fejl som issues (skabelonen **Fejl**)\n\n## Færdig når\nHele gruppen har spillet en tur kun med Oplaen, og fundne fejl er oprettet som issues.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.1",
+      "title": "[S3.1] Turskifte, flere spillere, slut på spillet + vinder",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "sprint-task",
+        "backend"
+      ],
+      "assignees": [
+        "Andreas"
+      ],
+      "body": "<!-- key: S3.1 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.5}}\n**Bidrager til:** {{DOD2}}, {{DOD3}}\n\n## Mål\nSpillet kan startes, spilles af 1–6 spillere og afsluttes med en vinder.\n\n## Opgaver\n- [ ] Næste spiller efter valgt felt\n- [ ] Spillet slutter når alle 15 felter er udfyldt\n- [ ] Beregn vinder (uafgjort håndteres)\n- [ ] Nyt spil kan startes\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.2",
+      "title": "[S3.2] Slutskærm, animation og tydelig feedback",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "sprint-task",
+        "frontend"
+      ],
+      "assignees": [
+        "Frederik"
+      ],
+      "body": "<!-- key: S3.2 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Frederik\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S3.1}}, {{S2.6}}\n**Bidrager til:** {{DOD3}}, {{DOD7}}\n\n## Mål\nSpilleren forstår altid hvad der sker.\n\n## Opgaver\n- [ ] Slutskærm med vinder og point\n- [ ] Fejlbeskeder ved ugyldige handlinger\n- [ ] Tydelig markering af hvis tur det er\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.3",
+      "title": "[S3.3] Finjustér ryst + stabil forbindelse",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "sprint-task",
+        "arduino",
+        "communication"
+      ],
+      "assignees": [
+        "Bjarke"
+      ],
+      "body": "<!-- key: S3.3 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.8}}\n**Bidrager til:** {{DOD4}}, {{DOD5}}\n\n## Mål\nRyst føles naturligt, og spillet overlever at USB tages ud og ind.\n\n## Opgaver\n- [ ] Justér tærskel efter integrationstesten\n- [ ] Test at forbindelsen genoprettes efter USB ud/ind\n- [ ] Test 15 min. sammenhængende spil\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.4",
+      "title": "[S3.4] Mærk knapperne 1–5 og test touch",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "sprint-task",
+        "arduino"
+      ],
+      "assignees": [
+        "Abdi"
+      ],
+      "body": "<!-- key: S3.4 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Abdi\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.8}}\n**Bidrager til:** {{DOD4}}\n\n## Mål\nDet er tydeligt hvilken knap der hører til hvilken terning.\n\n## Opgaver\n- [ ] Mærkater eller markering 1–5 på Oplaen\n- [ ] Test touch med og uden case\n- [ ] Ret evt. LED-mapping\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.5",
+      "title": "[S3.5] Brugertest med 3–5 personer",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "sprint-task",
+        "test",
+        "user-test"
+      ],
+      "assignees": [
+        "Abdi",
+        "Bjarke",
+        "Andreas",
+        "Frederik"
+      ],
+      "body": "<!-- key: S3.5 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Abdi (med Bjarke, Andreas, Frederik)\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.8}}\n**Bidrager til:** {{DOD9}}\n\n## Mål\nSpillet er testet af personer uden for gruppen (DoD 9).\n\n## Opgaver\n- [ ] Find 3–5 testpersoner\n- [ ] Lad dem spille uden forklaring\n- [ ] Opret ét issue pr. test med skabelonen **🧪 Brugertest**\n- [ ] Saml de vigtigste fund i dette issue\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.6",
+      "title": "[S3.6] Gennemfør mindst én forbedring fra brugertesten",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "sprint-task",
+        "test",
+        "user-test"
+      ],
+      "assignees": [
+        "Frederik",
+        "Andreas",
+        "Bjarke",
+        "Abdi"
+      ],
+      "body": "<!-- key: S3.6 -->\n<!-- due: 2026-11-10 -->\n\n**Ansvarlig:** Frederik (med Andreas, Bjarke, Abdi)\n**Deadline:** tir 10/11\n\n**Afhænger af:** {{S3.5}}\n**Bidrager til:** {{DOD9}}\n\n## Mål\nFeedback fra brugertesten fører til en konkret forbedring.\n\n## Opgaver\n- [ ] Vælg forbedring(er) sammen\n- [ ] Den der ejer området laver ændringen\n- [ ] Link PR'en til brugertest-issuet\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.7",
+      "title": "[S3.7] Opdatér GDD, protokol, README og dataflow",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "sprint-task",
+        "docs"
+      ],
+      "assignees": [
+        "Andreas",
+        "Bjarke",
+        "Frederik",
+        "Abdi"
+      ],
+      "body": "<!-- key: S3.7 -->\n<!-- due: 2026-11-10 -->\n\n**Ansvarlig:** Andreas (med Bjarke, Frederik, Abdi)\n**Deadline:** tir 10/11\n\n**Bidrager til:** {{DOD1}}, {{DOD8}}\n\n## Mål\nDokumentationen passer til det færdige spil.\n\n## Opgaver\n- [ ] GDD: beslutninger fra test (Bjarke)\n- [ ] Protokol + dataflow-diagram (Andreas)\n- [ ] README: sådan starter man spillet (Frederik)\n- [ ] Arduino-afsnit (Abdi)\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.8",
+      "title": "[S3.8] Demo og præsentation",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "sprint-task",
+        "docs"
+      ],
+      "assignees": [
+        "Bjarke",
+        "Andreas",
+        "Frederik",
+        "Abdi"
+      ],
+      "body": "<!-- key: S3.8 -->\n<!-- due: 2026-11-10 -->\n\n**Ansvarlig:** Bjarke (med Andreas, Frederik, Abdi)\n**Deadline:** tir 10/11\n\n**Afhænger af:** {{S3.1}}, {{S3.2}}, {{S3.3}}, {{S3.4}}\n**Bidrager til:** {{DOD10}}\n\n## Mål\nGruppen kan demonstrere spillet og forklare de tekniske valg (DoD 10).\n\n## Opgaver\n- [ ] Demo-plan: hvem viser hvad\n- [ ] Hver person forklarer sit område\n- [ ] Tjek at alle har commits/PR'er på GitHub\n- [ ] Prøvekør demoen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    }
+  ],
+  "close": [
+    {
+      "title": "Spike: Rystet – ét ryst = ét kast?",
+      "comment": "Indgår nu i sprint-planen: {{S1.2}}, {{S1.3}}, {{S3.3}}. Lukkes her."
     },
     {
       "title": "Spike: Hold – er touch-knapperne pålidelige?",
-      "milestone": "Spikes – Det usikre",
-      "labels": [
-        "spike",
-        "arduino"
-      ],
-      "body": "## Mål\nEr touch-knapperne pålidelige, og kan man se hvilken knap der hører til hvilken terning?\n\n## Opgaver\n- [ ] Test med og uden plastikcase\n- [ ] Find ud af hvilken LED der sidder ved hvilken knap\n- [ ] Evt. mærkater med 1–5 på Oplaen"
+      "comment": "Indgår nu i sprint-planen: {{S1.4}}, {{S3.4}}. Lukkes her."
     },
     {
       "title": "Spike: Forbindelsen – kommer data stabilt fra Opla til PC?",
-      "milestone": "Spikes – Det usikre",
-      "labels": [
-        "spike",
-        "communication"
-      ],
-      "body": "## Mål\nKommer data stabilt fra Opla til PC?\n\n## Opgaver\n- [ ] Test 15 min. sammenhængende spil\n- [ ] Test genopkobling når USB tages ud/i\n- [ ] Log tabte/ugyldige beskeder"
+      "comment": "Indgår nu i sprint-planen: {{S3.3}}. Lukkes her."
     },
     {
       "title": "Spike: Valg af felt – mus eller Opla-knapper?",
-      "milestone": "Spikes – Det usikre",
-      "labels": [
-        "spike",
-        "frontend",
-        "user-test"
-      ],
-      "body": "## Mål\nMus på PC eller knapper på Oplaen? Test med 3–5 personer om de forstår spillet uden forklaring.\n\n## Opgaver\n- [ ] Prototype begge løsninger\n- [ ] Brugertest med 3–5 personer\n- [ ] Beslut og opdatér GDD"
+      "comment": "Indgår nu i sprint-planen: {{S2.6}}, {{S3.5}}. Lukkes her."
     }
   ]
 }
