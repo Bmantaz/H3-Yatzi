@@ -55,7 +55,7 @@ module.exports = async ({ github, context, core }) => {
     if (!people.size) out.push('_Alle opgaver i sprinten er færdige 🎉_');
     for (const [login, items] of [...people.entries()].sort()) {
       out.push(`- **@${login}:** ${items.sort((a, b) => (dueOf(a) || '').localeCompare(dueOf(b) || ''))
-        .map((i) => `${status(i).split(' ')[0]} ${name(i)}`).join(' · ')}`);
+        .map((i) => `${status(i).split(' ')[0]} #${i.number}`).join(' · ')}`);
     }
   }
 
@@ -74,18 +74,23 @@ module.exports = async ({ github, context, core }) => {
     }
   }
 
-  // DoD-overblik
+  // DoD-overblik: et krav er opfyldt, når alle sprint-opgaver der "Bidrager til" det er lukket.
+  // (Uafhængigt af om selve DoD-issuet er åbent eller lukket.)
+  const sprintTasks = all.filter((i) => hasLabel(i, 'sprint-task'));
   const dod = all.filter((i) => hasLabel(i, 'dod')).sort((a, b) => a.number - b.number);
-  const dodDone = dod.filter((i) => i.state === 'closed').length;
-  out.push('', `## ✅ Definition of Done – ${dodDone}/${dod.length}`, '', bar(dodDone, dod.length), '');
-  out.push(...dod.map((i) => `- [${i.state === 'closed' ? 'x' : ' '}] #${i.number}`));
-
-  // Backlog
-  const backlog = all.filter((i) => hasLabel(i, 'backlog'));
-  const backlogDone = backlog.filter((i) => i.state === 'closed').length;
-  out.push('', `## ⭐ Backlog (Nice to Have) – ${backlogDone}/${backlog.length}`,
-    '_Tages kun hvis en sprint er færdig før tid._', '');
-  out.push(...backlog.sort((a, b) => a.number - b.number).map((i) => `- [${i.state === 'closed' ? 'x' : ' '}] #${i.number}`));
+  const dodRows = dod.map((d) => {
+    const re = new RegExp(`Bidrager til:\\*\\*[^\\n]*#${d.number}(?!\\d)`);
+    const tasks = sprintTasks.filter((t) => re.test(t.body || ''));
+    const closed = tasks.filter((t) => t.state === 'closed').length;
+    return { d, tasks, closed, done: tasks.length > 0 && closed === tasks.length };
+  });
+  const dodDone = dodRows.filter((r) => r.done).length;
+  out.push('', `## ✅ Definition of Done – ${dodDone}/${dod.length}`,
+    '_Et krav er opfyldt, når alle sprint-opgaver der bidrager til det er færdige._', '',
+    bar(dodDone, dod.length), '', '| Krav | Opgaver færdige | Status |', '|---|---|---|');
+  for (const r of dodRows) {
+    out.push(`| ${r.d.title.replace(/\|/g, '\\|')} | ${r.closed}/${r.tasks.length} | ${r.done ? '✅' : r.closed ? '🟡' : '⚪'} |`);
+  }
 
   const body = out.join('\n');
   const tracker = all.find((i) => i.title === TITLE) || all.find((i) => OLD_TITLES.includes(i.title));
