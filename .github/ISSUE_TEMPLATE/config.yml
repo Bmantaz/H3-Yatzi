@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Definition of Done
+    url: https://github.com/Bmantaz/H3-Yatzi/blob/main/docs/DoD.md
+    about: Se kravene til mellemprojektet

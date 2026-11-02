@@ -1,0 +1,35 @@
+name: 🧪 Brugertest
+description: Feedback fra en testperson uden for gruppen (DoD 9)
+title: "Brugertest: "
+labels: [user-test, test]
+body:
+  - type: input
+    id: who
+    attributes:
+      label: Testperson (fornavn/rolle) og dato
+      placeholder: Fx "Mikkel, klassekammerat, 12/11"
+    validations:
+      required: true
+  - type: checkboxes
+    id: understood
+    attributes:
+      label: Forstod testpersonen spillet uden forklaring?
+      options:
+        - label: Ryst = kast
+        - label: Touch 1–5 = hold terning
+        - label: Valg af felt på pointtavlen
+  - type: textarea
+    id: observations
+    attributes:
+      label: Observationer
+    validations:
+      required: true
+  - type: textarea
+    id: quotes
+    attributes:
+      label: Citater / feedback
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Forbedring vi gennemfører
+      description: Link til PR/issue når forbedringen er lavet.

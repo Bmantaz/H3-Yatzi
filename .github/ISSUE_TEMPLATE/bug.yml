@@ -1,0 +1,30 @@
+name: 🐞 Fejl
+description: Noget virker ikke som forventet
+labels: []
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Område
+      options: [Arduino, Backend, Frontend, Kommunikation, Andet]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: Hvad skete der?
+      placeholder: Fx "Ét ryst gav to kast"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Sådan genskabes fejlen
+      placeholder: |
+        1. Start spil med 2 spillere
+        2. Ryst Oplaen
+        3. ...
+  - type: textarea
+    id: expected
+    attributes:
+      label: Forventet resultat

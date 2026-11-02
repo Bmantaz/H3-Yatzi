@@ -1,0 +1,21 @@
+name: ✨ Opgave / feature
+description: Ny funktion eller opgave
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Mål
+      description: Hvad skal opnås, og hvorfor?
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Opgaver
+      value: |
+        - [ ]
+  - type: dropdown
+    id: dod
+    attributes:
+      label: Hører til
+      options: [Definition of Done, Nice to Have, Andet]
