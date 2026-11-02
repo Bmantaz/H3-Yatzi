@@ -33,21 +33,37 @@ dotnet test                              # kør tests
 
 Arduino: åbn `arduino/yatzi_controller/yatzi_controller.ino`, vælg board *Arduino MKR WiFi 1010* og upload.
 
+## Sprints og ansvar
+
+| Sprint | Periode | Mål |
+|---|---|---|
+| **Sprint 1 – Fundament** | tir 3. – ons 4. nov | Hver del virker for sig. Protokollen aftales tirsdag formiddag. |
+| **Sprint 2 – Integration** | tor 5. – fre 6. nov | Mindste spilbare version hele vejen igennem. Integrationstest fredag. |
+| **Sprint 3 – Færdigt spil + brugertest** | man 9. – tir 10. nov | Helt spil, brugertest mandag, demo tirsdag. |
+
+| Område | Ansvarlig |
+|---|---|
+| Frontend | Frederik (@Juuul999) |
+| Backend | Andreas (@Zikka1987) |
+| Arduino – ryst (`shake.cpp`) | Bjarke (@Bmantaz) |
+| Arduino – terning-input/hold (`dice_input.cpp`) | Abdi (@AssisDk) |
+
+Se **📋 Sprint-board** (fastgjort issue) for hvem der laver hvad lige nu.
+
 ## GitHub Actions
 
 | Workflow | Hvad den gør |
 |---|---|
 | **CI** | Bygger og tester backend (.NET 8) og kompilerer Arduino-sketchen ved hvert push og PR. |
-| **Seed labels, milestones & issues** | Kør manuelt (Actions → Run workflow). Opretter labels, milestones og issues fra `.github/issues.json`. Kan køres igen uden dubletter. |
-| **DoD progress** | Holder issuet **📋 DoD-status** opdateret, når issues åbnes og lukkes. |
+| **Sync sprint-plan** | Opretter/opdaterer sprint-milestones, sprint-opgaver med ansvarlige og deadlines ud fra `.github/issues.json`. Kører automatisk når filen ændres på `main` – ret planen der. |
+| **Sprint-board** | Holder issuet **📋 Sprint-board** opdateret: hvem laver hvad, status pr. opgave (⚪ ikke startet · 🟡 i gang · 🔴 forsinket · ✅ færdig), DoD-fremskridt og backlog. Kører ved ændringer og hver hverdag kl. 07:30. |
+| **PR → issue-status** | En PR med `Closes #12` markerer #12 som 🟡 i gang. Ved merge lukkes issuet automatisk. |
 
-## Arbejdsgang med issues
+## Arbejdsgang
 
-1. Vælg et issue og tildel det til dig selv (**Assignees**).
-2. Lav en branch: `git checkout -b 12-ryst-registrering`
-3. Commit og push, og åbn en Pull Request med `Closes #12` i beskrivelsen – så lukkes issuet automatisk ved merge.
-4. CI skal være grøn, og en anden i gruppen reviewer, før der merges.
+1. Tag dit næste issue på sprint-boardet.
+2. Lav en branch: `git checkout -b S1-3-ryst-detektion`
+3. Commit og push, og åbn en Pull Request med `Closes #<nummer>` i beskrivelsen.
+4. `main` er beskyttet: alt skal ind via en PR. CI skal være grøn før merge.
 5. Brug skabelonen **🧪 Brugertest** til feedback fra testpersoner (DoD 9).
-
-**Labels:** `dod`, `nth`, `spike`, `arduino`, `backend`, `frontend`, `communication`, `docs`, `test`, `user-test`
-**Milestones:** *DoD – Mellemprojekt*, *Spikes – Det usikre*, *Nice to Have*
+6. Kort stand-up hver morgen: hvad lavede jeg, hvad laver jeg nu, hvad blokerer mig?
