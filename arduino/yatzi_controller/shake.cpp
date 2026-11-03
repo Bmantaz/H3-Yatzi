@@ -5,7 +5,13 @@ extern MKRIoTCarrier carrier;
 
 // S1.2: 1 = skriv accelerometer-data til Serial Plotter (Værktøjer → Serial Plotter, 115200 baud).
 // Skal være 0, når Oplaen taler med serveren – ellers blander tallene sig med protokol-beskederne.
-#define SHAKE_LOG 1
+#define SHAKE_LOG 0
+
+// S1.3: målt i #28 – stille ≈ 1 g, let ryst ≈ 1.8 g, kraftigt ryst ≈ 6 g
+const float SHAKE_THRESHOLD = 2.5;            // g – over dette tæller som ryst
+const unsigned long SHAKE_QUIET_MS = 1000;    // så længe skal Oplaen have været rolig før næste kast
+
+static unsigned long lastPeak = 0;  // sidste gang total var over tærsklen
 
 void shakeSetup() {
   // Accelerometeret startes af carrier.begin() i .ino
@@ -29,6 +35,14 @@ bool shakeDetected() {
   Serial.print(" total:"); Serial.println(total);
 #endif
 
-  // TODO (S1.3): returnér true ved ét ryst (tærskel + pause mellem kast)
-  return false;
+  if (total < SHAKE_THRESHOLD) {
+    return false;
+  }
+
+  // Et ryst giver mange toppe frem og tilbage. Kun den første top efter en rolig pause
+  // er et kast – resten af rystet (også et langt ryst) forlænger bare pausen.
+  unsigned long now = millis();
+  bool newShake = now - lastPeak >= SHAKE_QUIET_MS;
+  lastPeak = now;
+  return newShake;
 }
