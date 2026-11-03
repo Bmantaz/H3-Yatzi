@@ -415,7 +415,7 @@
     },
     {
       "key": "S2.1",
-      "title": "[S2.1] Seriel-læser i backend",
+      "title": "[S2.1] Seriel- og TCP-læser i backend",
       "milestone": "Sprint 2 – Integration",
       "labels": [
         "sprint-task",
@@ -425,12 +425,12 @@
       "assignees": [
         "Andreas"
       ],
-      "body": "<!-- key: S2.1 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.1}}, {{S1.7}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nBeskeder fra Oplaen styrer spillet, og backend sender status tilbage.\n\n## Opgaver\n- [ ] Background service der læser seriel-porten\n- [ ] Kast-besked → kast, hold-besked → hold\n- [ ] Send status tilbage ved hver ændring\n- [ ] Port sættes i `appsettings.json`\n- [ ] Ugyldigt input ignoreres og logges\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S2.1 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.1}}, {{S1.7}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nBeskeder fra Oplaen styrer spillet, og backend sender status tilbage.\n\n## Opgaver\n- [ ] Background service der læser seriel-porten\n- [ ] TCP-listener på port 5050 (WiFi) med samme beskeder\n- [ ] Send `STATE` til alle forbundne (USB og TCP)\n- [ ] Kast-besked → kast, hold-besked → hold\n- [ ] Send status tilbage ved hver ændring\n- [ ] Port sættes i `appsettings.json`\n- [ ] Ugyldigt input ignoreres og logges\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
       "key": "S2.2",
-      "title": "[S2.2] Saml ryst + touch i én sketch og modtag status",
+      "title": "[S2.2] Saml ryst + touch i én sketch, USB/WiFi og modtag status",
       "milestone": "Sprint 2 – Integration",
       "labels": [
         "sprint-task",
@@ -440,7 +440,7 @@
       "assignees": [
         "Bjarke"
       ],
-      "body": "<!-- key: S2.2 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.3}}, {{S1.5}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nÉn sketch med både ryst og touch, der også lytter på backend. Abdi reviewer PR'en.\n\n## Opgaver\n- [ ] Kald `shake` og `dice_input` fra `yatzi_controller.ino`\n- [ ] Læs status-beskeder fra backend\n- [ ] Del status videre til `dice_input` (LED) og skærm\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S2.2 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.3}}, {{S1.5}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nÉn sketch med både ryst og touch, der også lytter på backend. Abdi reviewer PR'en.\n\n## Opgaver\n- [ ] Kald `shake` og `dice_input` fra `yatzi_controller.ino`\n- [ ] WiFi: forbind med WiFiNINA og TCP til backend port 5050, ellers USB (se protokollen)\n- [ ] `arduino_secrets.example.h` i git, `arduino_secrets.h` ignoreres – CI skal stadig kunne kompilere\n- [ ] Send `READY` efter hver (gen)forbindelse\n- [ ] Læs status-beskeder fra backend\n- [ ] Del status videre til `dice_input` (LED) og skærm\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
@@ -571,7 +571,7 @@
       "assignees": [
         "Bjarke"
       ],
-      "body": "<!-- key: S3.3 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.8}}\n**Bidrager til:** {{DOD4}}, {{DOD5}}\n\n## Mål\nRyst føles naturligt, og spillet overlever at USB tages ud og ind.\n\n## Opgaver\n- [ ] Justér tærskel efter integrationstesten\n- [ ] Test at forbindelsen genoprettes efter USB ud/ind\n- [ ] Test 15 min. sammenhængende spil\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S3.3 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.8}}\n**Bidrager til:** {{DOD4}}, {{DOD5}}\n\n## Mål\nRyst føles naturligt, og spillet overlever at USB tages ud og ind, og at WiFi falder ud.\n\n## Opgaver\n- [ ] Justér tærskel efter integrationstesten\n- [ ] Test at forbindelsen genoprettes efter USB ud/ind\n- [ ] Test at Oplaen skifter til USB når WiFi falder ud, og tilbage igen\n- [ ] Test 15 min. sammenhængende spil\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
