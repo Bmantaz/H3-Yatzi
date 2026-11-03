@@ -44,11 +44,11 @@
 - **Hvorfor tunnel:** værtens PC har en privat IP, som de andre ikke kan nå hjemmefra. Tunnelen giver en offentlig HTTPS-adresse uden at åbne routeren. HTTPS er samtidig et krav for Web Serial.
 - **Hvorfor ikke MQTT/TCP:** ville kræve en offentlig broker eller åbne porte. WebSocket kører over den samme tunnel som resten af spillet.
 
-### Rækkefølge
+### Rækkefølge og MVP
 
 1. **S1.10 (onsdag):** spike – virker Web Serial + tunnel fra et andet netværk?
-2. **Fredag (S2.8):** integrationstest hjemmefra, alle over **USB** via browser-broen.
-3. **Mandag (S3.9, S3.10):** WiFi direkte fra Oplaen.
+2. **Fredag (S2.8) – MVP:** 2 spillere hjemmefra, hver med sin Oplà over **USB via browser-broen** og tunnelen: ryst, hold, 3 slag, vælg felt, næste spiller.
+3. **Mandag (S3.9, S3.10):** WiFi direkte fra Oplaen. Ikke en del af MVP'en – driller det, spiller vi over USB.
 
 ### Oplaen vælger selv (når WiFi er med)
 
@@ -59,9 +59,24 @@
 
 ### Opsætning
 
-- **Værten:** kør serveren og `ngrok http --url=<fast-adresse> 5000`. Ngrok er gratis og giver én fast adresse pr. konto, så Oplà'erne ikke skal have ny adresse hver gang. (Detaljer skrives ind efter S1.10.)
-- **Spillerne:** åbn tunnel-adressen i **Chrome eller Edge** (Web Serial virker ikke i Firefox/Safari). Klik "Forbind Oplà (USB)" og vælg porten.
-- **WiFi:** netværksnavn, kode og tunnel-adressen skrives i `arduino/yatzi_controller/arduino_secrets.h`. Filen er **ikke** i git. Kopiér `arduino_secrets.example.h` og udfyld den.
+- **Værten:** kør serveren og `ngrok http --url=<adressen> 5000`. En gratis ngrok-konto får tildelt én fast udviklingsadresse (`*.ngrok-free.app`), så Oplà'erne ikke skal have ny adresse hver gang. (Detaljer skrives ind efter S1.10.)
+- **Spillerne:** åbn tunnel-adressen i **Chrome eller Edge** (Web Serial virker ikke i Firefox/Safari).
+  - Første gang viser gratis-ngrok en **advarselsside** – klik "Visit Site".
+  - Klik "Forbind Oplà (USB)" og vælg porten. Browseren kræver, at spilleren selv klikker.
+- **WiFi:**
+  - Netværksnavn, kode og tunnel-adressen skrives i `arduino/yatzi_controller/arduino_secrets.h`. Filen er **ikke** i git. Kopiér `arduino_secrets.example.h` og udfyld den.
+  - **TLS-certifikat:** WiFi-modulet (NINA) kan kun lave WSS til servere, hvis root-certifikat er uploadet. Upload det for tunnel-adressen med Arduino IDE → *Upload SSL Root Certificates* (S3.9).
+
+### Sikring af `/ws/opla`
+
+Endpointet ligger offentligt på internettet, så serveren (S2.12):
+
+- afviser `ROLL`/`HOLD` fra en forbindelse, der ikke har sendt `READY` og er parret,
+- afviser beskeder over 64 tegn og mere end ca. 20 beskeder/sek. pr. forbindelse (lukker forbindelsen),
+- tillader et begrænset antal samtidige Oplà-forbindelser (fx 12),
+- ignorerer og logger ugyldige beskeder.
+
+Den 4-cifrede kode er **parring, ikke login** – den siger hvilken Oplà der hører til hvilken spiller, men beskytter ikke spillet mod andre. Det er godt nok til et skoleprojekt, hvor tunnel-adressen kun deles i gruppen.
 
 ## Parring: hvilken Oplà hører til hvilken spiller?
 
@@ -142,10 +157,11 @@ Oplà A og B    ← END
 | Beskedhåndtering: linje ind → svar ud | Andreas | S2.1 |
 | Parring og lobby (`PAIR`, `JOINED`, lobby-API) | Andreas | S2.9 |
 | Tur-styring (`STATE`, `WAIT`, `END`) | Andreas | S3.1 |
+| WebSocket `/ws/opla`: forbindelser, sessioner, sikring | Andreas | S2.12 |
 | WiFi-Oplà'er på `/ws/opla` via tunnel | Andreas | S3.10 |
 | **Browser og tunnel** | | |
 | Spike: Web Serial + tunnel fra andet netværk | Bjarke | S1.10 |
-| Browser-bro + WebSocket `/ws/opla` | Bjarke | S2.11 |
+| Browser-bro (Web Serial ⇄ `/ws/opla`) | Bjarke | S2.11 |
 | Lobby-skærm (navn + kode, start spil) | Frederik | S2.10 |
 
 ## Dataflow

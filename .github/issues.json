@@ -425,7 +425,7 @@
       "assignees": [
         "Bjarke"
       ],
-      "body": "<!-- key: S1.10 -->\n<!-- due: 2026-11-04 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** ons 4/11\n\n**Afhænger af:** {{S1.1}}\n**Bidrager til:** {{DOD5}}\n\n## Mål\nFind ud af om en spiller hjemmefra kan forbinde sin Oplà via browseren til værtens server, før vi bygger lobbyen på det.\n\n## Opgaver\n- [ ] Opret gratis ngrok-konto og en fast adresse (static domain), fx `https://yatzi-xxx.ngrok-free.app`\n- [ ] Kør `ngrok http --url=<adressen> 5000` på værtens PC\n- [ ] Lille testside der forbinder til Oplaen med `navigator.serial` (Chrome/Edge)\n- [ ] Vis linjerne fra Oplaen og send en linje tilbage (fx `PAIR 1234`) over en WebSocket\n- [ ] Test fra en anden PC **på et andet netværk** (fx mobil-hotspot)\n- [ ] Skriv resultatet og tunnel-opsætningen i dette issue og i `docs/protocol.md`\n\n## Færdig når\nResultatet står i issuet. Virker det ikke, vælger gruppen en reserveplan (fx et lille bro-program på spillerens PC).",
+      "body": "<!-- key: S1.10 -->\n<!-- due: 2026-11-04 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** ons 4/11\n\n**Afhænger af:** {{S1.1}}\n**Bidrager til:** {{DOD5}}\n\n## Mål\nFind ud af om en spiller hjemmefra kan forbinde sin Oplà via browseren til værtens server, før vi bygger lobbyen på det.\n\n## Opgaver\n- [ ] Opret gratis ngrok-konto og brug den faste udviklingsadresse, den tildeler (`*.ngrok-free.app`)\n- [ ] Kør `ngrok http --url=<adressen> 5000` på værtens PC\n- [ ] Lille testside med \"Forbind\"-knap, der åbner Oplaen med `navigator.serial.requestPort()` (kræver klik)\n- [ ] Vis linjerne fra Oplaen og send en linje tilbage (fx `PAIR 1234`) over en WebSocket\n- [ ] Test fra en anden PC **på et andet netværk** (fx mobil-hotspot), i Chrome og Edge\n- [ ] Ngroks advarselsside: hvad ser spilleren første gang, og virker fetch/WebSocket bagefter (evt. header `ngrok-skip-browser-warning`)?\n- [ ] Mål forsinkelsen: føles et ryst øjeblikkeligt gennem tunnelen?\n- [ ] Skriv resultatet i dette issue, og en kort spiller-vejledning i `docs/protocol.md`\n\n## Færdig når\nResultatet står i issuet. Virker det ikke, vælger gruppen en reserveplan (fx et lille bro-program på spillerens PC).",
       "managed": "create"
     },
     {
@@ -543,7 +543,7 @@
         "Frederik",
         "Abdi"
       ],
-      "body": "<!-- key: S2.8 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Andreas (med Bjarke, Frederik, Abdi)\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.1}}, {{S2.2}}, {{S2.3}}, {{S2.6}}, {{S2.7}}, {{S2.9}}, {{S2.10}}, {{S2.11}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nFredag eftermiddag virker den mindste spilbare version hele vejen igennem.\n\n> 📡 Fredagens test er **hjemmefra over USB** (browser-broen) mod værtens server via HTTPS-tunnel. WiFi testes mandag i {{S3.3}}, når {{S3.9}} og {{S3.10}} er færdige.\n\n## Opgaver\n- [ ] Ryst → terninger på skærmen\n- [ ] Touch → holdt terning på skærm + LED\n- [ ] 3 slag → vælg felt\n- [ ] Mindst 2 spillere joiner lobbyen hjemmefra via tunnel-adressen, hver med sin Oplà over USB\n- [ ] Kun Oplaen hos spilleren med tur kan kaste\n- [ ] Notér fejl som issues (skabelonen **Fejl**)\n\n## Færdig når\nHele gruppen har spillet en tur kun med Oplaen, og fundne fejl er oprettet som issues.",
+      "body": "<!-- key: S2.8 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Andreas (med Bjarke, Frederik, Abdi)\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.1}}, {{S2.2}}, {{S2.3}}, {{S2.6}}, {{S2.7}}, {{S2.9}}, {{S2.10}}, {{S2.11}}, {{S2.12}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nFredag eftermiddag virker den mindste spilbare version (MVP): **2 spillere hjemmefra, hver med sin Oplà over USB via browser-broen og tunnelen** – ryst, hold, 3 slag, vælg felt, næste spiller. WiFi er ikke en del af MVP'en.\n\n> 📡 WiFi testes mandag i {{S3.3}}, når {{S3.9}} og {{S3.10}} er færdige.\n\n## Opgaver\n- [ ] Ryst → terninger på skærmen\n- [ ] Touch → holdt terning på skærm + LED\n- [ ] 3 slag → vælg felt\n- [ ] Mindst 2 spillere joiner lobbyen hjemmefra via tunnel-adressen, hver med sin Oplà over USB\n- [ ] Kun Oplaen hos spilleren med tur kan kaste\n- [ ] Notér fejl som issues (skabelonen **Fejl**)\n\n## Færdig når\nHele gruppen har spillet en tur kun med Oplaen, og fundne fejl er oprettet som issues.",
       "managed": "create"
     },
     {
@@ -558,7 +558,7 @@
       "assignees": [
         "Andreas"
       ],
-      "body": "<!-- key: S2.9 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.1}}\n**Bidrager til:** {{DOD3}}, {{DOD5}}, {{DOD6}}\n\n## Mål\nSpillere kan joine et spil med navn og Oplà-kode, og serveren ved hvilken Oplà der hører til hvem.\n\n## Opgaver\n- [ ] `READY` → `PAIR cccc` (unik 4-cifret kode), `READY cccc` genkendes efter genforbindelse\n- [ ] `POST /api/lobby/join` med navn + kode → `JOINED navn` til Oplaen\n- [ ] `GET /api/lobby` (spillere) og `POST /api/lobby/start` (1–6 spillere)\n- [ ] Del JSON-formatet med Frederik (lobby-skærmen)\n- [ ] Tests: ukendt kode, samme kode to gange, flere end 6 spillere\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S2.9 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.1}}, {{S2.12}}\n**Bidrager til:** {{DOD3}}, {{DOD5}}, {{DOD6}}\n\n## Mål\nSpillere kan joine et spil med navn og Oplà-kode, og serveren ved hvilken Oplà der hører til hvem.\n\n## Opgaver\n- [ ] `READY` → `PAIR cccc` (unik 4-cifret kode), `READY cccc` genkendes efter genforbindelse\n- [ ] `POST /api/lobby/join` med navn + kode → `JOINED navn` til Oplaen\n- [ ] `GET /api/lobby` (spillere) og `POST /api/lobby/start` (1–6 spillere)\n- [ ] Del JSON-formatet med Frederik (lobby-skærmen)\n- [ ] Tests: ukendt kode, samme kode to gange, flere end 6 spillere\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
@@ -577,18 +577,32 @@
     },
     {
       "key": "S2.11",
-      "title": "[S2.11] Browser-bro: USB-Oplà → WebSocket /ws/opla",
+      "title": "[S2.11] Browser-bro: USB-Oplà via Web Serial",
       "milestone": "Sprint 2 – Integration",
       "labels": [
         "sprint-task",
         "communication",
-        "frontend",
-        "backend"
+        "frontend"
       ],
       "assignees": [
         "Bjarke"
       ],
-      "body": "<!-- key: S2.11 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S1.10}}, {{S2.1}}, {{S2.9}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nEn Oplà i USB på spillerens egen PC – hvor som helst – kan spille på serveren.\n\n## Opgaver\n- [ ] \"Forbind Oplà (USB)\"-knap i lobbyen (Web Serial)\n- [ ] WebSocket-endpoint `/ws/opla` i backend, der bruger beskedhåndteringen fra {{S2.1}} (serverens eneste Oplà-endpoint – WiFi bruger det samme)\n- [ ] Browseren videresender linjer begge veje uændret (dropper `#`-linjer)\n- [ ] Udfyld koden i lobbyen automatisk fra `PAIR`\n- [ ] Test: 2 spillere på hver sit netværk via tunnel-adressen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S2.11 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S1.10}}, {{S2.10}}, {{S2.12}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nEn Oplà i USB på spillerens egen PC – hvor som helst – kan spille på serveren.\n\n## Opgaver\n- [ ] \"Forbind Oplà (USB)\"-knap i lobbyen – `requestPort()` kræver et klik fra spilleren\n- [ ] Browseren videresender linjer begge veje uændret mellem Oplaen og `wss://<tunnel>/ws/opla` (dropper `#`-linjer)\n- [ ] Udfyld koden i lobbyen automatisk fra `PAIR`\n- [ ] Tydelig besked hvis browseren ikke understøtter Web Serial (Firefox/Safari)\n- [ ] Test mod ekko-udgaven af {{S2.12}} indtil den rigtige er klar\n- [ ] Test: 2 spillere på hver sit netværk via tunnel-adressen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.12",
+      "title": "[S2.12] WebSocket /ws/opla: forbindelser, sessioner og sikring",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "backend",
+        "communication"
+      ],
+      "assignees": [
+        "Andreas"
+      ],
+      "body": "<!-- key: S2.12 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.1}}\n**Bidrager til:** {{DOD5}}, {{DOD6}}, {{DOD8}}\n\n## Mål\nServerens eneste Oplà-endpoint. Både browser-broen og WiFi-Oplà'er forbinder hertil, og det tåler at ligge offentligt på internettet.\n\n## Opgaver\n- [ ] Tidlig ekko-udgave (sender linjen tilbage), så browser-broen ({{S2.11}}) kan testes\n- [ ] `/ws/opla` sender hver linje til beskedhåndteringen ({{S2.1}}) og svarer på samme forbindelse\n- [ ] Én session pr. forbindelse; `ROLL`/`HOLD` afvises før `READY` og parring\n- [ ] Afvis beskeder over 64 tegn og mere end ca. 20 beskeder/sek. pr. forbindelse (luk forbindelsen)\n- [ ] Maks. antal samtidige Oplà-forbindelser (fx 12)\n- [ ] Ugyldige beskeder ignoreres og logges\n- [ ] Tests af sessioner og afvisninger\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
@@ -730,7 +744,7 @@
       "assignees": [
         "Abdi"
       ],
-      "body": "<!-- key: S3.9 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Abdi\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S1.1}}, {{S2.2}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nOplaen kan bruges trådløst over WiFi – med præcis de samme beskeder som over USB. USB skal stadig virke.\n\n## Opgaver\n- [ ] Forbind Oplaen til WiFi (biblioteket WiFiNINA)\n- [ ] WiFi-navn og -kode i en separat fil, der **ikke** kommer på GitHub\n- [ ] Forbind til `wss://<tunnel-adresse>/ws/opla` med `WiFiSSLClient` + `ArduinoHttpClient` (WebSocket) – tilføj biblioteket i CI\n- [ ] Send kast- og hold-beskeder over WiFi efter `docs/protocol.md`\n- [ ] Husk koden fra `PAIR` og send `READY cccc` ved genforbindelse\n- [ ] Modtag status fra backend over WiFi (LED'er og skærm opdateres)\n- [ ] Valg af forbindelse: WiFi hvis forbundet, ellers USB (se `docs/protocol.md`)\n- [ ] Vis på Oplaens skærm om den kører på USB eller WiFi\n- [ ] Test sammen med Andreas ({{S3.10}})\n\n## Færdig når\nEn hel tur kan spilles med Oplaen over WiFi uden USB-kabel, og USB virker stadig. Koden er merged via en PR med `Closes #<dette issue>`.",
+      "body": "<!-- key: S3.9 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Abdi\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S1.1}}, {{S2.2}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nOplaen kan bruges trådløst over WiFi – med præcis de samme beskeder som over USB. USB skal stadig virke.\n\n## Opgaver\n- [ ] Forbind Oplaen til WiFi (biblioteket WiFiNINA)\n- [ ] WiFi-navn og -kode i en separat fil, der **ikke** kommer på GitHub\n- [ ] Upload root-certifikatet for tunnel-adressen til NINA-modulet (Arduino IDE: *Upload SSL Root Certificates*) – ellers fejler WSS\n- [ ] Forbind til `wss://<tunnel-adresse>/ws/opla` med `WiFiSSLClient` + `ArduinoHttpClient` (WebSocket) – tilføj biblioteket i CI\n- [ ] Send kast- og hold-beskeder over WiFi efter `docs/protocol.md`\n- [ ] Husk koden fra `PAIR` og send `READY cccc` ved genforbindelse\n- [ ] Modtag status fra backend over WiFi (LED'er og skærm opdateres)\n- [ ] Valg af forbindelse: WiFi hvis forbundet, ellers USB (se `docs/protocol.md`)\n- [ ] Vis på Oplaens skærm om den kører på USB eller WiFi\n- [ ] Test sammen med Andreas ({{S3.10}})\n\n## Færdig når\nEn hel tur kan spilles med Oplaen over WiFi uden USB-kabel, WSS virker med det uploadede certifikat (fremgangsmåden står i `docs/protocol.md`), og USB virker stadig. Koden er merged via en PR med `Closes #<dette issue>`.",
       "managed": "create"
     },
     {
@@ -745,7 +759,7 @@
       "assignees": [
         "Andreas"
       ],
-      "body": "<!-- key: S3.10 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S1.1}}, {{S2.1}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nOplà'er på WiFi kan forbinde direkte til serveren over internettet – på samme endpoint og med samme beskedhåndtering som USB.\n\n## Opgaver\n- [ ] Test at `/ws/opla` virker for en klient uden browser (fx `websocat wss://<tunnel-adresse>/ws/opla`)\n- [ ] Brug samme beskedhåndtering som {{S2.1}} – ingen dobbelt spillogik\n- [ ] Vis tunnel-adressen i loggen ved opstart, og læg den i `appsettings.json`\n- [ ] Håndtér at en Oplà skifter mellem USB og WiFi midt i spillet (`READY cccc`)\n- [ ] Test sammen med Abdi ({{S3.9}})\n\n## Færdig når\nServeren virker med Oplà'er både via browser-broen og direkte over WiFi. Koden er merged via en PR med `Closes #<dette issue>`.",
+      "body": "<!-- key: S3.10 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S1.1}}, {{S2.1}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nOplà'er på WiFi kan forbinde direkte til serveren over internettet – på samme endpoint og med samme beskedhåndtering som USB.\n\n## Opgaver\n- [ ] Test at `/ws/opla` virker for en klient uden browser (fx `websocat wss://<tunnel-adresse>/ws/opla`)\n- [ ] Brug samme endpoint ({{S2.12}}) og beskedhåndtering ({{S2.1}}) – ingen dobbelt spillogik\n- [ ] Vis tunnel-adressen i loggen ved opstart, og læg den i `appsettings.json`\n- [ ] Håndtér at en Oplà skifter mellem USB og WiFi midt i spillet (`READY cccc`)\n- [ ] Test sammen med Abdi ({{S3.9}})\n\n## Færdig når\nServeren virker med Oplà'er både via browser-broen og direkte over WiFi. Koden er merged via en PR med `Closes #<dette issue>`.",
       "managed": "create"
     }
   ],
