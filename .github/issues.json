@@ -425,7 +425,7 @@
       "assignees": [
         "Andreas"
       ],
-      "body": "<!-- key: S2.1 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.1}}, {{S1.7}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nBeskeder fra Oplaen styrer spillet, og backend sender status tilbage.\n\n## Opgaver\n- [ ] Background service der læser seriel-porten\n- [ ] TCP-listener på port 5050 (WiFi) med samme beskeder\n- [ ] Send `STATE` til alle forbundne (USB og TCP)\n- [ ] Kast-besked → kast, hold-besked → hold\n- [ ] Send status tilbage ved hver ændring\n- [ ] Port sættes i `appsettings.json`\n- [ ] Ugyldigt input ignoreres og logges\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S2.1 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.1}}, {{S1.7}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nBeskeder fra Oplaen styrer spillet, og backend sender status tilbage.\n\n## Opgaver\n- [ ] Background service der læser seriel-porten\n- [ ] TCP-listener på port 5050 (WiFi) og WebSocket `/ws/opla` (USB via browser) med samme beskeder\n- [ ] Parring: `READY` → `PAIR cccc`, genkend `READY cccc`\n- [ ] `STATE` til Oplaen med tur, `WAIT navn` til de andre\n- [ ] Kast-besked → kast, hold-besked → hold\n- [ ] Send status tilbage ved hver ændring\n- [ ] Port sættes i `appsettings.json`\n- [ ] Ugyldigt input ignoreres og logges\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
