@@ -1,6 +1,243 @@
-body {
-  font-family: system-ui, sans-serif;
-  margin: 16px;
+:root {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #1f2328;
+  --muted: #6b7280;
+  --line: #1f2328;
+  --green: #2e9e4f;
+  --green-soft: #e6f4ea;
+  --red: #c62828;
+  --die-size: 76px;
 }
 
-/* TODO: styling af terninger, holdte terninger og pointtavle */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.topbar {
+  padding: 12px 16px;
+  background: var(--line);
+  color: #fff;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+main {
+  max-width: 900px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+}
+
+/* Knapper */
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: 2px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Startskærm */
+
+.start-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.start-form input {
+  font: inherit;
+  padding: 9px 12px;
+  border: 2px solid #c9ccd1;
+  border-radius: 8px;
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+.start-form input:focus {
+  outline: none;
+  border-color: var(--green);
+}
+
+/* Spilskærm */
+
+.turn {
+  margin: 0 0 20px;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.dice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.die {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.die:disabled {
+  cursor: default;
+}
+
+.die-face {
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  place-items: center;
+  width: var(--die-size);
+  height: var(--die-size);
+  padding: 10px;
+  border: 3px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.pip {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+}
+
+.pip.on {
+  background: var(--line);
+}
+
+.die-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+/* Ikke slået endnu */
+.die.unrolled .die-face {
+  border-style: dashed;
+  border-color: #c9ccd1;
+}
+
+/* Holdt terning: grøn kant som i GDD'en */
+.die.held .die-face {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+
+.die.held .die-label {
+  color: var(--green);
+}
+
+.die:not(:disabled):hover .die-face {
+  transform: translateY(-2px);
+}
+
+.die:focus-visible .die-face {
+  outline: 3px solid #4c8dff;
+  outline-offset: 3px;
+}
+
+.die.rolling .die-face {
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-12deg); }
+  40% { transform: rotate(10deg); }
+  60% { transform: rotate(-6deg); }
+  80% { transform: rotate(4deg); }
+}
+
+.roll-count {
+  margin: 20px 0 12px;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.message {
+  min-height: 1.4em;
+  margin: 16px 0 0;
+  font-weight: 600;
+}
+
+.message.error {
+  color: var(--red);
+}
+
+@media (max-width: 480px) {
+  :root {
+    --die-size: 50px;
+  }
+
+  .card {
+    padding: 20px 16px;
+  }
+
+  .dice {
+    gap: 8px;
+  }
+
+  .die-face {
+    padding: 6px;
+    border-width: 2px;
+    border-radius: 9px;
+  }
+
+  .pip {
+    width: 9px;
+    height: 9px;
+  }
+}

@@ -7,11 +7,37 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>H3 Yatzi</h1>
+  <header class="topbar">
+    <h1>H3 Yatzi</h1>
+  </header>
 
-  <!-- TODO: startskærm (spillernavne) -->
-  <!-- TODO: terninger -->
-  <!-- TODO: pointtavle -->
+  <main>
+    <!-- Startskærm (S1.8). Udbygges til lobby med Oplà-kode og spillerliste i S2.10. -->
+    <section id="start-screen" class="card">
+      <h2>Nyt spil</h2>
+      <form id="start-form" class="start-form">
+        <label for="player-name">Dit navn</label>
+        <input id="player-name" name="name" type="text" maxlength="20" autocomplete="nickname" required>
+        <button type="submit" class="btn btn-primary">Start spil</button>
+      </form>
+    </section>
+
+    <!-- Spilskærm: terninger og "Slag x/3" (S1.8). Pointtavlen kommer i S2.6. -->
+    <section id="game-screen" class="card" hidden>
+      <p id="turn" class="turn"></p>
+
+      <div id="dice" class="dice" role="group" aria-label="Terninger"></div>
+
+      <p id="roll-count" class="roll-count">Slag 0/3</p>
+
+      <div class="controls">
+        <button id="roll-btn" type="button" class="btn btn-primary">Kast</button>
+        <p class="hint">Ryst Oplaen for at kaste (knappen er reserve).<br>Klik på en terning (eller touch 1-5) for at holde den.</p>
+      </div>
+
+      <p id="message" class="message" role="status" aria-live="polite"></p>
+    </section>
+  </main>
 
   <script src="app.js"></script>
 </body>
