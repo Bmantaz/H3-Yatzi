@@ -12,6 +12,21 @@
   - Tekstlinjer kan læses direkte i Serial Monitor, så vi kan teste Oplaen uden backend og backend uden Oplà (skriv beskederne i hånden).
   - Let at læse i C# med `System.IO.Ports.SerialPort.ReadLine()` og i Arduino med `Serial.readStringUntil('\n')`.
 
+### Hvorfor ikke WiFi?
+
+MKR WiFi 1010 kan godt WiFi, og vi har overvejet det:
+
+| | USB-seriel (valgt) | WiFi (MQTT eller HTTP) |
+|---|---|---|
+| Opsætning | Kabel i PC'en | WiFi-login i sketchen, broker (MQTT) eller fast IP (HTTP) |
+| Risiko til demo | Lav | Skolens netværk kan blokere eller drille |
+| Strøm | Via USB | Kræver batteri, hvis Oplaen skal være trådløs |
+| Fordel | Simpelt og stabilt | Oplaen kan sendes rundt uden kabel; flere controllere (multiplayer) |
+
+Spillet er turbaseret, og Oplaen "gives videre" ved bordet, så et kabel er ikke et problem. Vi vælger det sikre først (DoD 5).
+
+**Hvis vi når det:** MQTT står som Nice-to-Have i [DoD.md](DoD.md). Beskederne nedenfor er uafhængige af transporten – `ROLL`, `HOLD n` og `STATE r hhhhh` kan sendes uændret som MQTT-beskeder (fx topic `yatzi/input` og `yatzi/state`), så kun forbindelseskoden skal skiftes.
+
 ## Grundregler
 
 1. **Backend bestemmer.** Oplaen sender kun *hvad spilleren gjorde* (ryst, tryk). Backend slår terningerne, tæller slag og holder styr på holdte terninger.
