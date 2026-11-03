@@ -44,8 +44,8 @@ Arduino: åbn `arduino/yatzi_controller/yatzi_controller.ino`, vælg board *Ardu
 | Område | Ansvarlig |
 |---|---|
 | Frontend + lobby-skærm | Frederik (@Juuul999) |
-| Backend: spillogik, lobby, parring, WiFi-server | Andreas (@Zikka1987) |
-| Arduino – ryst, skærm, samlet sketch (`shake.cpp`, `.ino`) + browser-bro (USB) | Bjarke (@Bmantaz) |
+| Backend: spillogik, beskedhåndtering, lobby, parring | Andreas (@Zikka1987) |
+| Arduino – ryst, skærm, samlet sketch (`shake.cpp`, `.ino`) + browser-bro (USB) og tunnel | Bjarke (@Bmantaz) |
 | Arduino – terning-input/hold, LED'er, WiFi (`dice_input.cpp`) | Abdi (@AssisDk) |
 
 Se **📋 Sprint-board** (fastgjort issue) for hvem der laver hvad lige nu.

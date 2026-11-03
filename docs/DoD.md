@@ -17,7 +17,7 @@ Hvert punkt har et tilhørende GitHub-issue (label `dod`, milestone **DoD – Me
 
 Label `nth`, milestone **Nice to Have**. ✅ = valgt og en del af sprint-planen.
 
-- **MQTT** – broker, topics og dokumenteret beskedformat mellem Arduino og backend. _(Fravalgt: vi bruger TCP-socket til WiFi, se [protocol.md](protocol.md).)_
+- **MQTT** – broker, topics og dokumenteret beskedformat mellem Arduino og backend. _(Fravalgt: vi bruger WebSocket over HTTPS-tunnel, se [protocol.md](protocol.md).)_
 - **Highscore og database** – gem resultater og vis et leaderboard.
 - ✅ **Multiplayer** – flere spillere med hver deres Arduino-controller. _(Én Oplà pr. spiller med lobby.)_
 - **SignalR** – realtidskommunikation mellem backend og frontend.
@@ -26,4 +26,4 @@ Label `nth`, milestone **Nice to Have**. ✅ = valgt og en del af sprint-planen.
 - ✅ **Arduino-feedback** – LED'er, buzzer eller skærm giver feedback.
 - **Animationer og lyde** – animationer, lydeffekter og visuelle forbedringer.
 - **Automatiserede tests** – tests af backend/spillogik.
-- ✅ **Deployment** – spillet kan tilgås fra andre computere. _(Alle spillere joiner værtens server fra egen PC.)_
+- ✅ **Deployment** – spillet kan tilgås fra andre computere. _(Værtens server via HTTPS-tunnel – spillerne joiner hjemmefra.)_
