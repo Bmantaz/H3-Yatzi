@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/Bmantaz/H3-Yatzi/actions/workflows/ci.yml/badge.svg)](https://github.com/Bmantaz/H3-Yatzi/actions/workflows/ci.yml)
 
-Mellemprojekt: et digitalt Yatzy-spil, hvor **Arduino Oplà** (MKR WiFi 1010) bruges som raflebæger – ryst for at kaste, touch 1–5 for at holde terninger. Terninger og pointtavle vises på PC'en.
+Mellemprojekt: et digitalt Yatzy-spil, hvor **Arduino Oplà** (MKR WiFi 1010) bruges som raflebæger – ryst for at kaste, touch 1–5 for at holde terninger. Hver spiller har sin egen Oplà og PC og joiner en fælles lobby; terninger og pointtavle vises i browseren.
 
 - 📄 [Game Design Document](docs/GDD.md)
 - ✅ [Definition of Done & Nice to Have](docs/DoD.md)
-- 🔌 [Protokol Oplà ⇄ backend](docs/protocol.md) _(udfyldes af gruppen)_
+- 🔌 [Protokol Oplà ⇄ server](docs/protocol.md) – USB + WiFi, lobby og parring
 
 ## Struktur
 
@@ -43,10 +43,10 @@ Arduino: åbn `arduino/yatzi_controller/yatzi_controller.ino`, vælg board *Ardu
 
 | Område | Ansvarlig |
 |---|---|
-| Frontend | Frederik (@Juuul999) |
-| Backend | Andreas (@Zikka1987) |
-| Arduino – ryst (`shake.cpp`) | Bjarke (@Bmantaz) |
-| Arduino – terning-input/hold (`dice_input.cpp`) | Abdi (@AssisDk) |
+| Frontend + lobby-skærm | Frederik (@Juuul999) |
+| Backend: spillogik, lobby, parring, WiFi-server | Andreas (@Zikka1987) |
+| Arduino – ryst, skærm, samlet sketch (`shake.cpp`, `.ino`) + browser-bro (USB) | Bjarke (@Bmantaz) |
+| Arduino – terning-input/hold, LED'er, WiFi (`dice_input.cpp`) | Abdi (@AssisDk) |
 
 Se **📋 Sprint-board** (fastgjort issue) for hvem der laver hvad lige nu.
 

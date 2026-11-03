@@ -34,13 +34,18 @@ Samme tekstlinjer på alle tre veje:
 | **WiFi** | `WiFiClient` (WiFiNINA) forbinder til værtens IP, port **5050** | `TcpListener` på port 5050 |
 | **USB** | `Serial`, 115200 baud | – |
 | ↳ **browser-bro** | Spillerens browser læser USB med Web Serial og videresender linjerne uændret | WebSocket `/ws/opla` |
+| ↳ **direkte i værten** | Oplaen sidder i USB på værtens egen PC | `SerialPort` (COM-port i `appsettings.json`) |
 
 - **Format:** én besked pr. linje, UTF-8-tekst, afsluttet med `\n` (`\r\n` accepteres). Kommandoer med store bogstaver, felter adskilt af ét mellemrum.
 - **Hvorfor tekstlinjer:** kan læses direkte i Serial Monitor eller med `telnet <værtens-ip> 5050`, så hver del kan testes alene ved at skrive beskederne i hånden.
 - **Hvorfor TCP til WiFi:** samme linjer begge veje som USB, ingen broker (MQTT) og serveren kan selv sende til Oplaen (det kan HTTP ikke).
 - **Hvorfor browser-bro til USB:** Oplaen sidder i spillerens egen PC, ikke i serveren. Browseren videresender, så spilleren ikke skal installere noget.
 
-### Oplaen vælger selv
+### Rækkefølge
+
+USB først: fredagens integrationstest (S2.8) kører over USB – én Oplà direkte i værten og én via browser-broen. WiFi kommer i Sprint 3 (S3.9 og S3.10).
+
+### Oplaen vælger selv (når WiFi er med)
 
 1. Ved opstart: prøv WiFi og TCP til serveren (højst ca. 10 sek.).
 2. Lykkes det, bruges **WiFi**. Ellers **USB**.
@@ -56,7 +61,7 @@ Samme tekstlinjer på alle tre veje:
   - kører serveren HTTPS, eller
   - hver spiller tilføjer værtens adresse i `chrome://flags/#unsafely-treat-insecure-origin-as-secure`.
 
-  ⚠️ Skal afprøves i Sprint 1, før vi bygger videre på det. Virker det ikke, er reserveplanen et lille bro-program på spillerens PC.
+  ⚠️ Afprøves i S1.10 (onsdag), før vi bygger videre på det. Virker det ikke, er reserveplanen et lille bro-program på spillerens PC.
 
 ## Parring: hvilken Oplà hører til hvilken spiller?
 
@@ -126,12 +131,22 @@ Oplà A og B    ← END
 
 | Del | Ansvarlig | Opgave |
 |-----|-----------|--------|
+| **Oplà** | | |
 | Sender `ROLL` | Bjarke | S1.3 (`shake.cpp`) |
 | Sender `HOLD n` | Abdi | S1.4 (`dice_input.cpp`) |
-| WiFi/USB-valg, `READY`, læser server-beskeder, viser kode/navn/"Slag x/3" | Bjarke | S2.2, S2.4 |
+| Samler sketchen, sender `READY`, læser server-beskeder | Bjarke | S2.2 (`yatzi_controller.ino`) |
 | LED'er ud fra `STATE`/`WAIT` | Abdi | S2.3 (`showHeldDice`) |
-| TCP 5050 + WebSocket `/ws/opla`, parring, tur-styring | Andreas | S2.1 |
-| Lobby (navn + kode) og browser-bro (Web Serial) | Frederik | _ny opgave_ |
+| Skærm: kode, navn, "Vent – navn", "Slag x/3" | Bjarke | S2.4 |
+| WiFi, `READY cccc` ved genforbindelse | Abdi | S3.9 |
+| **Server** | | |
+| Seriel-port i værtens PC + fælles beskedhåndtering | Andreas | S2.1 |
+| Parring og lobby (`PAIR`, `JOINED`, lobby-API) | Andreas | S2.9 |
+| Tur-styring (`STATE`, `WAIT`, `END`) | Andreas | S3.1 |
+| TCP 5050 (WiFi) | Andreas | S3.10 |
+| **Browser** | | |
+| Web Serial – virker det? | Bjarke | S1.10 (spike) |
+| Browser-bro + WebSocket `/ws/opla` | Bjarke | S2.11 |
+| Lobby-skærm (navn + kode, start spil) | Frederik | S2.10 |
 
 ## Dataflow
 
