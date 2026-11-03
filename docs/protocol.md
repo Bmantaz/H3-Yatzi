@@ -4,64 +4,79 @@
 
 ## Overblik
 
-- **Én Oplà pr. spiller, og hver spiller har sin egen PC.**
-- **Én PC er vært** og kører serveren (`Yatzi.Api`). Alle spillere – også værten – åbner spillet i browseren (`http://<værtens-ip>:5000`) og joiner **lobbyen**.
-- Man spiller **på skift** (klassisk Yatzy). Alle ser det samme spil på hver sin skærm. Kun Oplaen hos den spiller, der har tur, kan kaste og holde.
-- **Det er ligegyldigt, om Oplaen er forbundet med USB eller WiFi.** Serveren får præcis de samme beskeder begge veje og kan ikke se forskel.
+- **Én Oplà og én PC pr. spiller.** Spillerne sidder **hver for sig** (forskellige hjem og netværk).
+- **Én PC er vært** og kører serveren (`Yatzi.Api`). En **HTTPS-tunnel** gør den tilgængelig på internettet, fx `https://yatzi-xxx.ngrok-free.app`.
+- Alle spillere – også værten – åbner tunnel-adressen i browseren og joiner **lobbyen**.
+- Man spiller **på skift** (klassisk Yatzy). Kun Oplaen hos den spiller, der har tur, kan kaste og holde.
+- **Det er ligegyldigt, om Oplaen er forbundet med USB eller WiFi.** Serveren har ét endpoint til Oplà'er – WebSocket `/ws/opla` – og får de samme beskeder begge veje.
 
 ```
- Spiller A's PC                            Værtens PC
- ┌───────────────────────┐                 ┌──────────────────────────┐
- │ Browser (Web Serial)  │◄── WebSocket ──►│                          │
- │        ▲              │                 │  Server (Yatzi.Api)      │
- └────────┼──────────────┘                 │  lobby + spil + point    │
-     USB  │                                │                          │
- ┌────────┴──┐                             │                          │
- │ Oplà A    │                             │                          │
- └───────────┘                             │                          │
- ┌───────────┐                             │                          │
- │ Oplà B    │◄────── WiFi, TCP 5050 ─────►│                          │
- └───────────┘                             └──────────────────────────┘
-   (Spiller B's browser viser bare spillet)
+ Spiller A (hjemme)                                     Værtens PC
+ ┌─────────────────────────┐                          ┌───────────────────────┐
+ │ Browser (Chrome/Edge)   │                          │                       │
+ │  lobby + spil           │◄──── HTTPS ─────┐        │                       │
+ │  browser-bro ───────────│◄──── WSS ───┐   │        │  Server (Yatzi.Api)   │
+ │        ▲ Web Serial     │             │   │        │  lobby, spil, point   │
+ └────────┼────────────────┘             ▼   ▼        │                       │
+      USB │                         ┌──────────────┐  │  /ws/opla  (Oplà'er)  │
+ ┌────────┴──┐                      │ HTTPS-tunnel │◄►│  /api      (browsere) │
+ │ Oplà A    │                      │   (ngrok)    │  │                       │
+ └───────────┘                      └──────────────┘  └───────────────────────┘
+ Spiller B (hjemme)                      ▲   ▲
+ ┌───────────┐                           │   │
+ │ Oplà B    │──── WiFi, WSS ────────────┘   │
+ └───────────┘                               │
+ Browser B (lobby + spil) ──── HTTPS ────────┘
 ```
 
 ## Forbindelser
 
-Samme tekstlinjer på alle tre veje:
+**Én model:** al Oplà-trafik går via WebSocket `/ws/opla` på serveren. Serveren læser aldrig selv en USB-port.
 
-| Vej | Oplà-side | Server-side |
-|---|---|---|
-| **WiFi** | `WiFiClient` (WiFiNINA) forbinder til værtens IP, port **5050** | `TcpListener` på port 5050 |
-| **USB** | `Serial`, 115200 baud | – |
-| ↳ **browser-bro** | Spillerens browser læser USB med Web Serial og videresender linjerne uændret | WebSocket `/ws/opla` |
-| ↳ **direkte i værten** | Oplaen sidder i USB på værtens egen PC | `SerialPort` (COM-port i `appsettings.json`) |
+| Oplaen er forbundet med | Vej til serveren |
+|---|---|
+| **USB** (115200 baud) | Oplà → spillerens browser (Web Serial) → `wss://<tunnel>/ws/opla`. Browseren videresender linjerne uændret. |
+| **WiFi** | Oplà → `wss://<tunnel>/ws/opla` direkte (`WiFiSSLClient` + `ArduinoHttpClient`). |
 
-- **Format:** én besked pr. linje, UTF-8-tekst, afsluttet med `\n` (`\r\n` accepteres). Kommandoer med store bogstaver, felter adskilt af ét mellemrum.
-- **Hvorfor tekstlinjer:** kan læses direkte i Serial Monitor eller med `telnet <værtens-ip> 5050`, så hver del kan testes alene ved at skrive beskederne i hånden.
-- **Hvorfor TCP til WiFi:** samme linjer begge veje som USB, ingen broker (MQTT) og serveren kan selv sende til Oplaen (det kan HTTP ikke).
-- **Hvorfor browser-bro til USB:** Oplaen sidder i spillerens egen PC, ikke i serveren. Browseren videresender, så spilleren ikke skal installere noget.
+- **Format:** én besked pr. linje (pr. WebSocket-besked), UTF-8-tekst. Over USB afsluttes linjer med `\n` (`\r\n` accepteres). Kommandoer med store bogstaver, felter adskilt af ét mellemrum.
+- **Hvorfor tekstlinjer:** kan læses i Serial Monitor og testes med fx `websocat wss://<tunnel>/ws/opla`, så hver del kan testes alene ved at skrive beskederne i hånden.
+- **Hvorfor WebSocket:** virker gennem en HTTPS-tunnel og over internettet, går begge veje (serveren kan selv sende `STATE`), og browseren og Oplaen kan bruge samme endpoint.
+- **Hvorfor tunnel:** værtens PC har en privat IP, som de andre ikke kan nå hjemmefra. Tunnelen giver en offentlig HTTPS-adresse uden at åbne routeren. HTTPS er samtidig et krav for Web Serial.
+- **Hvorfor ikke MQTT/TCP:** ville kræve en offentlig broker eller åbne porte. WebSocket kører over den samme tunnel som resten af spillet.
 
-### Rækkefølge
+### Rækkefølge og MVP
 
-USB først: fredagens integrationstest (S2.8) kører over USB – én Oplà direkte i værten og én via browser-broen. WiFi kommer i Sprint 3 (S3.9 og S3.10).
+1. **S1.10 (onsdag):** spike – virker Web Serial + tunnel fra et andet netværk?
+2. **Fredag (S2.8) – MVP:** 2 spillere hjemmefra, hver med sin Oplà over **USB via browser-broen** og tunnelen: ryst, hold, 3 slag, vælg felt, næste spiller.
+3. **Mandag (S3.9, S3.10):** WiFi direkte fra Oplaen. Ikke en del af MVP'en – driller det, spiller vi over USB.
 
 ### Oplaen vælger selv (når WiFi er med)
 
-1. Ved opstart: prøv WiFi og TCP til serveren (højst ca. 10 sek.).
-2. Lykkes det, bruges **WiFi**. Ellers **USB**.
+1. Ved opstart: prøv WiFi og WebSocket til serveren (højst ca. 10 sek.).
+2. Lykkes det, bruges **WiFi**. Ellers **USB** (browser-broen).
 3. Mister den WiFi, skifter den til USB og prøver WiFi igen hvert 5. sek.
 4. Den sender **kun på én vej ad gangen**, så serveren aldrig får det samme kast to gange.
 
 ### Opsætning
 
-- **WiFi:** netværksnavn, kode og værtens IP skrives i `arduino/yatzi_controller/arduino_secrets.h`. Filen er **ikke** i git. Kopiér `arduino_secrets.example.h` og udfyld den.
-- **Værtens PC:** Windows Firewall skal tillade indgående TCP 5050 (Oplà) og 5000 (browsere).
-- **Netværk:** alle PC'er og Oplà'er skal være på samme netværk. Blokerer skolens net trafik mellem enheder, så brug et mobil-hotspot.
-- **USB / Web Serial:** virker kun i **Chrome eller Edge** og kun på en "sikker" side. Siden fra værten (`http://<ip>:5000`) tæller ikke som sikker, så enten
-  - kører serveren HTTPS, eller
-  - hver spiller tilføjer værtens adresse i `chrome://flags/#unsafely-treat-insecure-origin-as-secure`.
+- **Værten:** kør serveren og `ngrok http --url=<adressen> 5000`. En gratis ngrok-konto får tildelt én fast udviklingsadresse (`*.ngrok-free.app`), så Oplà'erne ikke skal have ny adresse hver gang. (Detaljer skrives ind efter S1.10.)
+- **Spillerne:** åbn tunnel-adressen i **Chrome eller Edge** (Web Serial virker ikke i Firefox/Safari).
+  - Første gang viser gratis-ngrok en **advarselsside** – klik "Visit Site".
+  - Klik "Forbind Oplà (USB)" og vælg porten. Browseren kræver, at spilleren selv klikker.
+- **WiFi:**
+  - Netværksnavn, kode og tunnel-adressen skrives i `arduino/yatzi_controller/arduino_secrets.h`. Filen er **ikke** i git. Kopiér `arduino_secrets.example.h` og udfyld den.
+  - **TLS-certifikat:** WiFi-modulet (NINA) kan kun lave WSS til servere, hvis root-certifikat er uploadet. Upload det for tunnel-adressen med Arduino IDE → *Upload SSL Root Certificates* (S3.9).
 
-  ⚠️ Afprøves i S1.10 (onsdag), før vi bygger videre på det. Virker det ikke, er reserveplanen et lille bro-program på spillerens PC.
+### Sikring af `/ws/opla`
+
+Endpointet ligger offentligt på internettet, så serveren (S2.12):
+
+- afviser `ROLL`/`HOLD` fra en forbindelse, der ikke har sendt `READY` og er parret,
+- afviser beskeder over 64 tegn og mere end ca. 20 beskeder/sek. pr. forbindelse (lukker forbindelsen),
+- tillader et begrænset antal samtidige Oplà-forbindelser (fx 12),
+- ignorerer og logger ugyldige beskeder.
+
+Den 4-cifrede kode er **parring, ikke login** – den siger hvilken Oplà der hører til hvilken spiller, men beskytter ikke spillet mod andre. Det er godt nok til et skoleprojekt, hvor tunnel-adressen kun deles i gruppen.
 
 ## Parring: hvilken Oplà hører til hvilken spiller?
 
@@ -97,11 +112,11 @@ USB først: fredagens integrationstest (S2.8) kører over USB – én Oplà dire
 | `WAIT navn` | Det er ikke din tur – *navn* har tur. LED'er slukket. | "Vent – Andreas" | `WAIT Andreas` |
 | `STATE r hhhhh` | Det er **din tur**. *r* = brugte slag (0–3). *hhhhh* = terning 1–5, `1` = holdt. | "Slag r/3" + grønne LED'er | `STATE 2 10100` |
 | `END` | Spillet er slut. | "Slut" | `END` |
-| `# …` | Debug, ignoreres. | – | `# forbundet via TCP` |
+| `# …` | Debug, ignoreres. | – | `# forbundet` |
 
 ## Eksempel: to spillere
 
-Bjarke spiller over USB, Andreas over WiFi.
+Bjarke spiller over USB (browser-broen), Andreas over WiFi. De sidder hver for sig.
 
 ```
 Oplà B (USB)   → READY
@@ -120,7 +135,7 @@ Oplà B         → ROLL
                ← STATE 1 00000
 Oplà B         → HOLD 2
                ← STATE 1 01000          grøn LED ved knap 2
-   … Bjarke vælger felt på sin PC
+   … Bjarke vælger felt i browseren
 Oplà B         ← WAIT Andreas
 Oplà A         ← STATE 0 00000          "Slag 0/3" – Andreas' tur
    … osv. til alle felter er udfyldt
@@ -137,24 +152,25 @@ Oplà A og B    ← END
 | Samler sketchen, sender `READY`, læser server-beskeder | Bjarke | S2.2 (`yatzi_controller.ino`) |
 | LED'er ud fra `STATE`/`WAIT` | Abdi | S2.3 (`showHeldDice`) |
 | Skærm: kode, navn, "Vent – navn", "Slag x/3" | Bjarke | S2.4 |
-| WiFi, `READY cccc` ved genforbindelse | Abdi | S3.9 |
+| WiFi (WSS til `/ws/opla`), `READY cccc` ved genforbindelse | Abdi | S3.9 |
 | **Server** | | |
-| Seriel-port i værtens PC + fælles beskedhåndtering | Andreas | S2.1 |
+| Beskedhåndtering: linje ind → svar ud | Andreas | S2.1 |
 | Parring og lobby (`PAIR`, `JOINED`, lobby-API) | Andreas | S2.9 |
 | Tur-styring (`STATE`, `WAIT`, `END`) | Andreas | S3.1 |
-| TCP 5050 (WiFi) | Andreas | S3.10 |
-| **Browser** | | |
-| Web Serial – virker det? | Bjarke | S1.10 (spike) |
-| Browser-bro + WebSocket `/ws/opla` | Bjarke | S2.11 |
+| WebSocket `/ws/opla`: forbindelser, sessioner, sikring | Andreas | S2.12 |
+| WiFi-Oplà'er på `/ws/opla` via tunnel | Andreas | S3.10 |
+| **Browser og tunnel** | | |
+| Spike: Web Serial + tunnel fra andet netværk | Bjarke | S1.10 |
+| Browser-bro (Web Serial ⇄ `/ws/opla`) | Bjarke | S2.11 |
 | Lobby-skærm (navn + kode, start spil) | Frederik | S2.10 |
 
 ## Dataflow
 
 ```
-Oplà ──WiFi TCP 5050──────────────────────┐
-Oplà ──USB──► spillerens browser ──WS─────┤──► server (Yatzi.Api + Yatzi.Core)
-                                          │        │
-alle browsere ◄──HTTP /api + live-opdatering┘◄───────┘
+Oplà ──WiFi──────────────────────────── WSS /ws/opla ──┐
+Oplà ──USB──► spillerens browser (Web Serial) ── WSS ──┤──► tunnel ──► server (Yatzi.Api + Yatzi.Core)
+                                                       │                    │
+alle browsere ◄──── HTTPS /api + live-opdatering ──────┘◄───────────────────┘
 ```
 
 _Live-opdatering (polling eller SignalR) besluttes i S2.7, og dataflowet opdateres i S3.7._
