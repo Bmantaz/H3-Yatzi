@@ -55,7 +55,7 @@ Se **📋 Sprint-board** (fastgjort issue) for hvem der laver hvad lige nu.
 | Workflow | Hvad den gør |
 |---|---|
 | **CI** | Bygger og tester backend (.NET 8) og kompilerer Arduino-sketchen ved hvert push og PR. |
-| **Sync sprint-plan** | Opretter/opdaterer sprint-milestones, sprint-opgaver med ansvarlige og deadlines ud fra `.github/issues.json`. Kører automatisk når filen ændres på `main` – ret planen der. |
+| **Sync sprint-plan** | Opretter sprint-milestones og nye sprint-opgaver ud fra `.github/issues.json`, og sætter labels, milestone og ansvarlige på eksisterende. Kører automatisk når filen ændres på `main`. ⚠️ Titel og tekst på **eksisterende** issues overskrives ikke (så jeres flueben bevares) – ret dem også direkte på GitHub. |
 | **Sprint-board** | Holder issuet **📋 Sprint-board** opdateret: hvem laver hvad, status pr. opgave (⚪ ikke startet · 🟡 i gang · 🔴 forsinket · ✅ færdig), DoD-fremskridt og backlog. Kører ved ændringer og hver hverdag kl. 07:30. |
 | **PR → issue-status** | En PR med `Closes #12` markerer #12 som 🟡 i gang. Ved merge lukkes issuet automatisk. |
 
