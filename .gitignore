@@ -8,3 +8,6 @@ TestResults/
 *.swp
 .DS_Store
 appsettings.Development.json
+
+# Arduino: WiFi-kode må ikke i git
+arduino_secrets.h

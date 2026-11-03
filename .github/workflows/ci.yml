@@ -46,3 +46,4 @@ jobs:
             - arduino/yatzi_controller
           libraries: |
             - name: Arduino_MKRIoTCarrier
+            - name: WiFiNINA
