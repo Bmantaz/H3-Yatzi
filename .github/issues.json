@@ -297,7 +297,7 @@
         "Andreas",
         "Abdi"
       ],
-      "body": "<!-- key: S1.1 -->\n<!-- due: 2026-11-03 -->\n\n**Ansvarlig:** Bjarke (med Andreas, Abdi)\n**Deadline:** tir 3/11\n\n**Bidrager til:** {{DOD5}}\n\n## Mål\nGruppen er enige om beskederne mellem Oplaen og backend, så alle kan bygge mod det samme fra dag 1.\n\n## Opgaver\n- [ ] Vælg transport (forslag: USB-seriel, 115200 baud)\n- [ ] Beskeder Oplà → backend: kast, hold/slip terning n\n- [ ] Beskeder backend → Oplà: status (slag brugt, holdte terninger)\n- [ ] Udfyld `docs/protocol.md` og få godkendelse fra Andreas og Abdi\n\n## Færdig når\n`docs/protocol.md` er udfyldt og merged **tirsdag inden frokost**.",
+      "body": "<!-- key: S1.1 -->\n<!-- due: 2026-11-03 -->\n\n**Ansvarlig:** Bjarke (med Andreas, Abdi)\n**Deadline:** tir 3/11\n\n**Bidrager til:** {{DOD5}}\n\n> 📡 Oplaen skal kunne bruges **både via USB og via WiFi**. Beskederne skal være de samme over begge forbindelser – kun transporten er forskellig.\n\n## Mål\nGruppen er enige om beskederne mellem Oplaen og backend – ens for USB og WiFi – så alle kan bygge mod det samme fra dag 1.\n\n## Opgaver\n- [ ] USB: USB-seriel (forslag: 115200 baud)\n- [ ] WiFi: vælg metode (fx TCP-socket, WebSocket eller MQTT) og begrund valget\n- [ ] Beskriv hvordan Oplaen finder backend over WiFi (IP-adresse/port, samme netværk)\n- [ ] Beskriv hvordan man vælger USB eller WiFi (fx automatisk: WiFi hvis forbundet, ellers USB)\n- [ ] Beskeder Oplà → backend: kast, hold/slip terning n\n- [ ] Beskeder backend → Oplà: status (slag brugt, holdte terninger)\n- [ ] Udfyld `docs/protocol.md` og få godkendelse fra Andreas og Abdi\n\n## Færdig når\n`docs/protocol.md` er udfyldt og merged **tirsdag inden frokost**.",
       "managed": "create"
     },
     {
@@ -414,8 +414,23 @@
       "managed": "create"
     },
     {
+      "key": "S1.10",
+      "title": "[S1.10] Spike: Web Serial – læs Oplaen fra browseren",
+      "milestone": "Sprint 1 – Fundament",
+      "labels": [
+        "sprint-task",
+        "communication",
+        "frontend"
+      ],
+      "assignees": [
+        "Bjarke"
+      ],
+      "body": "<!-- key: S1.10 -->\n<!-- due: 2026-11-04 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** ons 4/11\n\n**Afhænger af:** {{S1.1}}\n**Bidrager til:** {{DOD5}}\n\n## Mål\nFind ud af om browser-broen (USB via Web Serial) virker fra en anden PC, før vi bygger lobbyen på den.\n\n## Opgaver\n- [ ] Lille testside der forbinder til Oplaen med `navigator.serial` (Chrome/Edge)\n- [ ] Vis linjerne fra Oplaen og send en linje tilbage (fx `PAIR 1234`)\n- [ ] Test fra en anden PC mod `http://<værtens-ip>:5000`: virker Chrome-flaget `unsafely-treat-insecure-origin-as-secure`, eller kræver det HTTPS?\n- [ ] Skriv resultatet i dette issue og i `docs/protocol.md`\n\n## Færdig når\nResultatet står i issuet. Virker det ikke, har gruppen valgt reserveplanen (lille bro-program på spillerens PC).",
+      "managed": "create"
+    },
+    {
       "key": "S2.1",
-      "title": "[S2.1] Seriel- og TCP-læser i backend",
+      "title": "[S2.1] Seriel-læser i backend",
       "milestone": "Sprint 2 – Integration",
       "labels": [
         "sprint-task",
@@ -425,12 +440,12 @@
       "assignees": [
         "Andreas"
       ],
-      "body": "<!-- key: S2.1 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.1}}, {{S1.7}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nBeskeder fra Oplaen styrer spillet, og backend sender status tilbage.\n\n## Opgaver\n- [ ] Background service der læser seriel-porten\n- [ ] TCP-listener på port 5050 (WiFi) og WebSocket `/ws/opla` (USB via browser) med samme beskeder\n- [ ] Parring: `READY` → `PAIR cccc`, genkend `READY cccc`\n- [ ] `STATE` til Oplaen med tur, `WAIT navn` til de andre\n- [ ] Kast-besked → kast, hold-besked → hold\n- [ ] Send status tilbage ved hver ændring\n- [ ] Port sættes i `appsettings.json`\n- [ ] Ugyldigt input ignoreres og logges\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S2.1 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.1}}, {{S1.7}}\n> 📡 USB først. Byg læseren så den samme beskedhåndtering kan genbruges af WiFi-forbindelsen i {{S3.10}}.\n\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nBeskeder fra Oplaen styrer spillet, og backend sender status tilbage.\n\n## Opgaver\n- [ ] Background service der læser seriel-porten\n- [ ] Kast-besked → kast, hold-besked → hold\n- [ ] Send status tilbage ved hver ændring\n- [ ] Port sættes i `appsettings.json`\n- [ ] Værtens egen Oplà kan sidde direkte i USB (fx til fredagens test)\n- [ ] Ugyldigt input ignoreres og logges\n- [ ] Beskedhåndteringen er adskilt fra selve USB-læsningen, så {{S3.10}} kan bruge den til WiFi\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
       "key": "S2.2",
-      "title": "[S2.2] Saml ryst + touch i én sketch, USB/WiFi og modtag status",
+      "title": "[S2.2] Saml ryst + touch i én sketch og modtag status",
       "milestone": "Sprint 2 – Integration",
       "labels": [
         "sprint-task",
@@ -440,7 +455,7 @@
       "assignees": [
         "Bjarke"
       ],
-      "body": "<!-- key: S2.2 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.3}}, {{S1.5}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nÉn sketch med både ryst og touch, der også lytter på backend. Abdi reviewer PR'en.\n\n## Opgaver\n- [ ] Kald `shake` og `dice_input` fra `yatzi_controller.ino`\n- [ ] WiFi: forbind med WiFiNINA og TCP til backend port 5050, ellers USB (se protokollen)\n- [ ] `arduino_secrets.example.h` i git, `arduino_secrets.h` ignoreres – CI skal stadig kunne kompilere\n- [ ] Send `READY` efter hver (gen)forbindelse\n- [ ] Læs status-beskeder fra backend\n- [ ] Del status videre til `dice_input` (LED) og skærm\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S2.2 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S1.3}}, {{S1.5}}\n> 📡 USB først. WiFi tilføjes i {{S3.9}} – sørg for at afsendelse/modtagelse af beskeder sker ét sted, så forbindelsen kan skiftes.\n\n**Bidrager til:** {{DOD8}}\n\n## Mål\nÉn sketch med både ryst og touch, der også lytter på backend. Abdi reviewer PR'en.\n\n## Opgaver\n- [ ] Kald `shake` og `dice_input` fra `yatzi_controller.ino`\n- [ ] Læs status-beskeder fra backend\n- [ ] Del status videre til `dice_input` (LED) og skærm\n- [ ] Saml afsendelse/modtagelse af beskeder ét sted, så {{S3.9}} kan tilføje WiFi uden at ændre shake/dice_input\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
@@ -454,7 +469,7 @@
       "assignees": [
         "Abdi"
       ],
-      "body": "<!-- key: S2.3 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Abdi\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S2.2}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nLED'erne viser altid det samme som skærmen – også ved ny tur.\n\n## Opgaver\n- [ ] LED-status sættes ud fra backend (ikke kun lokalt)\n- [ ] Alle LED'er slukkes ved ny tur\n- [ ] Test: hold på PC'en → LED på Oplaen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S2.3 -->\n<!-- due: 2026-11-05 -->\n\n**Ansvarlig:** Abdi\n**Deadline:** tor 5/11\n\n**Afhænger af:** {{S2.2}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nLED'erne viser altid det samme som skærmen – også ved ny tur.\n\n## Opgaver\n- [ ] LED-status sættes ud fra backend (ikke kun lokalt)\n- [ ] Alle LED'er slukkes ved ny tur\n- [ ] `WAIT` (ikke din tur) slukker alle LED'er\n- [ ] Test: hold på PC'en → LED på Oplaen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
@@ -468,7 +483,7 @@
       "assignees": [
         "Bjarke"
       ],
-      "body": "<!-- key: S2.4 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.2}}\n**Bidrager til:** {{NTH_FB}}\n\n## Mål\nSpilleren får feedback direkte på Oplaen.\n\n## Opgaver\n- [ ] Kort rasle-lyd ved kast\n- [ ] Rund skærm viser \"Slag x/3\" ud fra status\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S2.4 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.2}}\n**Bidrager til:** {{NTH_FB}}\n\n## Mål\nSpilleren får feedback direkte på Oplaen.\n\n## Opgaver\n- [ ] Kort rasle-lyd ved kast\n- [ ] Rund skærm viser \"Slag x/3\" ud fra status\n- [ ] Rund skærm viser koden fra `PAIR`, navnet fra `JOINED` og \"Vent – navn\" ved `WAIT`\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
@@ -528,7 +543,52 @@
         "Frederik",
         "Abdi"
       ],
-      "body": "<!-- key: S2.8 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Andreas (med Bjarke, Frederik, Abdi)\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.1}}, {{S2.2}}, {{S2.3}}, {{S2.6}}, {{S2.7}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nFredag eftermiddag virker den mindste spilbare version hele vejen igennem.\n\n## Opgaver\n- [ ] Ryst → terninger på skærmen\n- [ ] Touch → holdt terning på skærm + LED\n- [ ] 3 slag → vælg felt\n- [ ] Notér fejl som issues (skabelonen **Fejl**)\n\n## Færdig når\nHele gruppen har spillet en tur kun med Oplaen, og fundne fejl er oprettet som issues.",
+      "body": "<!-- key: S2.8 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Andreas (med Bjarke, Frederik, Abdi)\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.1}}, {{S2.2}}, {{S2.3}}, {{S2.6}}, {{S2.7}}, {{S2.9}}, {{S2.10}}, {{S2.11}}\n**Bidrager til:** {{DOD8}}\n\n## Mål\nFredag eftermiddag virker den mindste spilbare version hele vejen igennem.\n\n> 📡 Fredagens test er over **USB**. WiFi testes mandag i {{S3.3}}, når {{S3.9}} og {{S3.10}} er færdige.\n\n## Opgaver\n- [ ] Ryst → terninger på skærmen\n- [ ] Touch → holdt terning på skærm + LED\n- [ ] 3 slag → vælg felt\n- [ ] 2 spillere joiner lobbyen, hver med sin Oplà over USB (én i værtens PC, én via browser-broen)\n- [ ] Kun Oplaen hos spilleren med tur kan kaste\n- [ ] Notér fejl som issues (skabelonen **Fejl**)\n\n## Færdig når\nHele gruppen har spillet en tur kun med Oplaen, og fundne fejl er oprettet som issues.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.9",
+      "title": "[S2.9] Lobby og parring i backend",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "backend",
+        "communication"
+      ],
+      "assignees": [
+        "Andreas"
+      ],
+      "body": "<!-- key: S2.9 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S2.1}}\n**Bidrager til:** {{DOD3}}, {{DOD5}}, {{DOD6}}\n\n## Mål\nSpillere kan joine et spil med navn og Oplà-kode, og serveren ved hvilken Oplà der hører til hvem.\n\n## Opgaver\n- [ ] `READY` → `PAIR cccc` (unik 4-cifret kode), `READY cccc` genkendes efter genforbindelse\n- [ ] `POST /api/lobby/join` med navn + kode → `JOINED navn` til Oplaen\n- [ ] `GET /api/lobby` (spillere) og `POST /api/lobby/start` (1–6 spillere)\n- [ ] Del JSON-formatet med Frederik (lobby-skærmen)\n- [ ] Tests: ukendt kode, samme kode to gange, flere end 6 spillere\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.10",
+      "title": "[S2.10] Lobby-skærm: join med navn + Oplà-kode",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "frontend"
+      ],
+      "assignees": [
+        "Frederik"
+      ],
+      "body": "<!-- key: S2.10 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Frederik\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S1.8}}, {{S2.9}}\n**Bidrager til:** {{DOD3}}, {{DOD7}}\n\n## Mål\nHver spiller kan joine spillet fra sin egen PC.\n\n## Opgaver\n- [ ] Lobby-side: felt til navn og 4-cifret Oplà-kode\n- [ ] Liste over spillere i lobbyen (opdateres løbende)\n- [ ] \"Start spil\"-knap (1–6 spillere)\n- [ ] Brug mock-data indtil lobby-API'et er klar\n- [ ] Plads til \"Forbind Oplà (USB)\"-knappen fra browser-broen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S2.11",
+      "title": "[S2.11] Browser-bro: USB-Oplà → WebSocket /ws/opla",
+      "milestone": "Sprint 2 – Integration",
+      "labels": [
+        "sprint-task",
+        "communication",
+        "frontend",
+        "backend"
+      ],
+      "assignees": [
+        "Bjarke"
+      ],
+      "body": "<!-- key: S2.11 -->\n<!-- due: 2026-11-06 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** fre 6/11\n\n**Afhænger af:** {{S1.10}}, {{S2.9}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nEn Oplà i USB på spillerens egen PC virker præcis som en Oplà på WiFi.\n\n## Opgaver\n- [ ] \"Forbind Oplà (USB)\"-knap i lobbyen (Web Serial)\n- [ ] WebSocket-endpoint `/ws/opla` i backend, der bruger samme beskedhåndtering som seriel-læseren\n- [ ] Browseren videresender linjer begge veje uændret (dropper `#`-linjer)\n- [ ] Udfyld koden i lobbyen automatisk fra `PAIR`\n- [ ] Test: 2 spillere, den ene med Oplà via browser-broen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
@@ -542,7 +602,7 @@
       "assignees": [
         "Andreas"
       ],
-      "body": "<!-- key: S3.1 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.5}}\n**Bidrager til:** {{DOD2}}, {{DOD3}}\n\n## Mål\nSpillet kan startes, spilles af 1–6 spillere og afsluttes med en vinder.\n\n## Opgaver\n- [ ] Næste spiller efter valgt felt\n- [ ] Spillet slutter når alle 15 felter er udfyldt\n- [ ] Beregn vinder (uafgjort håndteres)\n- [ ] Nyt spil kan startes\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S3.1 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.5}}\n**Bidrager til:** {{DOD2}}, {{DOD3}}\n\n## Mål\nSpillet kan startes, spilles af 1–6 spillere og afsluttes med en vinder.\n\n## Opgaver\n- [ ] Næste spiller efter valgt felt\n- [ ] `STATE` til Oplaen hos spilleren med tur, `WAIT navn` til de andre, `END` når spillet slutter\n- [ ] Spillet slutter når alle 15 felter er udfyldt\n- [ ] Beregn vinder (uafgjort håndteres)\n- [ ] Nyt spil kan startes\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
@@ -571,7 +631,7 @@
       "assignees": [
         "Bjarke"
       ],
-      "body": "<!-- key: S3.3 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.8}}\n**Bidrager til:** {{DOD4}}, {{DOD5}}\n\n## Mål\nRyst føles naturligt, og spillet overlever at USB tages ud og ind, og at WiFi falder ud.\n\n## Opgaver\n- [ ] Justér tærskel efter integrationstesten\n- [ ] Test at forbindelsen genoprettes efter USB ud/ind\n- [ ] Test at Oplaen skifter til USB når WiFi falder ud, og tilbage igen\n- [ ] Test 15 min. sammenhængende spil\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S3.3 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Bjarke\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S2.8}}\n**Afhænger også af:** {{S3.9}}, {{S3.10}}\n**Bidrager til:** {{DOD4}}, {{DOD5}}\n\n## Mål\nRyst føles naturligt, og spillet virker stabilt over **både USB og WiFi**.\n\n## Opgaver\n- [ ] Justér tærskel efter integrationstesten\n- [ ] Test at forbindelsen genoprettes efter USB ud/ind\n- [ ] Test 15 min. sammenhængende spil over USB\n- [ ] Test et helt spil over WiFi (uden USB-kabel)\n- [ ] WiFi falder ud → Oplaen genforbinder (eller skifter til USB) uden at spillet går tabt\n- [ ] Sammenlign forsinkelse USB vs. WiFi (føles ryst/hold lige hurtigt?)\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
       "managed": "create"
     },
     {
@@ -655,7 +715,37 @@
         "Frederik",
         "Abdi"
       ],
-      "body": "<!-- key: S3.8 -->\n<!-- due: 2026-11-10 -->\n\n**Ansvarlig:** Bjarke (med Andreas, Frederik, Abdi)\n**Deadline:** tir 10/11\n\n**Afhænger af:** {{S3.1}}, {{S3.2}}, {{S3.3}}, {{S3.4}}\n**Bidrager til:** {{DOD10}}\n\n## Mål\nGruppen kan demonstrere spillet og forklare de tekniske valg (DoD 10).\n\n## Opgaver\n- [ ] Demo-plan: hvem viser hvad\n- [ ] Hver person forklarer sit område\n- [ ] Tjek at alle har commits/PR'er på GitHub\n- [ ] Prøvekør demoen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "body": "<!-- key: S3.8 -->\n<!-- due: 2026-11-10 -->\n\n**Ansvarlig:** Bjarke (med Andreas, Frederik, Abdi)\n**Deadline:** tir 10/11\n\n**Afhænger af:** {{S3.1}}, {{S3.2}}, {{S3.3}}, {{S3.4}}\n**Bidrager til:** {{DOD10}}\n\n## Mål\nGruppen kan demonstrere spillet og forklare de tekniske valg (DoD 10).\n\n## Opgaver\n- [ ] Demo-plan: hvem viser hvad\n- [ ] Hver person forklarer sit område\n- [ ] Tjek at alle har commits/PR'er på GitHub\n- [ ] Vis Oplaen over både USB og WiFi i demoen, og forklar valget af WiFi-metode\n- [ ] Plan B: kør over USB, hvis WiFi i lokalet driller\n- [ ] Prøvekør demoen\n\n## Færdig når\nKoden er merged til `main` via en PR med `Closes #<dette issue>`, og CI er grøn.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.9",
+      "title": "[S3.9] Arduino: WiFi-forbindelse (samme beskeder som USB)",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "arduino",
+        "communication",
+        "sprint-task"
+      ],
+      "assignees": [
+        "Abdi"
+      ],
+      "body": "<!-- key: S3.9 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Abdi\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S1.1}}, {{S2.2}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nOplaen kan bruges trådløst over WiFi – med præcis de samme beskeder som over USB. USB skal stadig virke.\n\n## Opgaver\n- [ ] Forbind Oplaen til WiFi (biblioteket WiFiNINA)\n- [ ] WiFi-navn og -kode i en separat fil, der **ikke** kommer på GitHub\n- [ ] Send kast- og hold-beskeder over WiFi efter `docs/protocol.md`\n- [ ] Husk koden fra `PAIR` og send `READY cccc` ved genforbindelse\n- [ ] Modtag status fra backend over WiFi (LED'er og skærm opdateres)\n- [ ] Valg af forbindelse: WiFi hvis forbundet, ellers USB (se `docs/protocol.md`)\n- [ ] Vis på Oplaens skærm om den kører på USB eller WiFi\n- [ ] Test sammen med Andreas ({{S3.10}})\n\n## Færdig når\nEn hel tur kan spilles med Oplaen over WiFi uden USB-kabel, og USB virker stadig. Koden er merged via en PR med `Closes #<dette issue>`.",
+      "managed": "create"
+    },
+    {
+      "key": "S3.10",
+      "title": "[S3.10] Backend: modtag Oplà-beskeder over WiFi",
+      "milestone": "Sprint 3 – Færdigt spil + brugertest",
+      "labels": [
+        "backend",
+        "communication",
+        "sprint-task"
+      ],
+      "assignees": [
+        "Andreas"
+      ],
+      "body": "<!-- key: S3.10 -->\n<!-- due: 2026-11-09 -->\n\n**Ansvarlig:** Andreas\n**Deadline:** man 9/11\n\n**Afhænger af:** {{S1.1}}, {{S2.1}}\n**Bidrager til:** {{DOD5}}, {{DOD8}}\n\n## Mål\nBackend kan modtage beskeder fra Oplaen over WiFi – og bruger den samme beskedhåndtering som USB.\n\n## Opgaver\n- [ ] Lyt efter Oplaen over WiFi på TCP-port 5050 (se `docs/protocol.md`)\n- [ ] Brug samme beskedhåndtering som seriel-læseren ({{S2.1}}) – ingen dobbelt spillogik\n- [ ] Send status tilbage til Oplaen over den forbindelse, den bruger\n- [ ] Port/indstillinger i `appsettings.json`; vis PC'ens IP-adresse i loggen ved opstart\n- [ ] Tjek firewall og at PC og Oplà er på samme netværk\n- [ ] Test sammen med Abdi ({{S3.9}})\n\n## Færdig når\nBackend virker med Oplaen både over USB og WiFi. Koden er merged via en PR med `Closes #<dette issue>`.",
       "managed": "create"
     }
   ],
