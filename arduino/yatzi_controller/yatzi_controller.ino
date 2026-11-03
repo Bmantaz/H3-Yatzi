@@ -26,7 +26,7 @@ void setup() {
 
 void loop() {
   if (shakeDetected()) {
-    // TODO (S1.3): send kast-beskeden fra docs/protocol.md
+    Serial.println("ROLL");  // ét ryst = ét kast (docs/protocol.md)
   }
 
   int die = diceTouched();  // 1–5, eller 0 hvis ingen knap er trykket
