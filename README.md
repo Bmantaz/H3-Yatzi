@@ -7,6 +7,7 @@ Mellemprojekt: et digitalt Yatzy-spil, hvor **Arduino Oplà** (MKR WiFi 1010) br
 - 📄 [Game Design Document](docs/GDD.md)
 - ✅ [Definition of Done & Nice to Have](docs/DoD.md)
 - 🔌 [Protokol Oplà ⇄ server](docs/protocol.md) – USB + WiFi, lobby og parring
+- 🌐 [HTTP API-kontrakt](docs/api.md) – requests, spiltilstand og fejl for opgave #33
 
 ## Struktur
 
@@ -20,7 +21,7 @@ docs/                       GDD, DoD, protokol
 .github/                    Actions, issue-skabeloner, issue-seed-data
 ```
 
-Alle filer er skabeloner med `TODO`-kommentarer – selve spillet bygger I.
+Backendens terningelogik og de fire spil-endpoints er implementeret og testet. Frontenden bruger fortsat mock-data. Lobby, pointberegning, turskifte og den samlede Oplà-integration følger i de næste sprintopgaver. Se [API-kontrakten](docs/api.md) for requests, spiltilstand og fejl.
 
 ## Kom i gang
 
