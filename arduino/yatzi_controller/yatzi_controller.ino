@@ -28,6 +28,7 @@ static String pairCode = "";       // fra PAIR – sendes med READY ved genforbi
 static bool serverAnswered = false;
 static bool wasConnected = false;
 static unsigned long readySentAt = 0;
+static int rollsUsed = -1;         // fra STATE; -1 = ikke din tur (så rasler Oplaen ikke)
 
 static const bool NO_DICE_HELD[5] = { false, false, false, false, false };
 
@@ -60,6 +61,7 @@ bool handleState(const String& line) {
     held[i] = c == '1';
   }
 
+  rollsUsed = rolls;
   showHeldDice(held);
   showTurn(rolls);
   return true;
@@ -69,6 +71,10 @@ void handleMessage(const String& line) {
   if (line.startsWith("#")) return;  // debug
 
   bool ok = true;
+  if (!line.startsWith("STATE ")) {
+    rollsUsed = -1;  // alt andet end STATE betyder at det ikke er din tur
+  }
+
   if (line.startsWith("PAIR ")) {
     pairCode = line.substring(5);
     showPair(pairCode);
@@ -114,9 +120,15 @@ void loop() {
 
   if (shakeDetected()) {
     linkSend("ROLL");  // ét ryst = ét kast
+    if (rollsUsed >= 0 && rollsUsed < 3) {
+      shakeSound();    // kun når kastet tæller – serveren afgør resten
+    }
   }
 
   int die = diceTouched();  // 1–5, eller 0 hvis ingen knap er trykket
+  if (die > 0 && shakeMoving()) {
+    die = 0;  // hånden rammer touch-knapperne når man ryster – ikke et rigtigt tryk
+  }
   if (die > 0) {
     // Tryk på touch-knap n = hold/slip terning n. Serveren skifter selv tilstand (docs/protocol.md).
     Serial.print("HOLD ");
