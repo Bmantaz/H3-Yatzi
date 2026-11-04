@@ -5,7 +5,7 @@
 ## Overblik
 
 - **Én Oplà og én PC pr. spiller.** Spillerne sidder **hver for sig** (forskellige hjem og netværk).
-- **Én PC er vært** og kører serveren (`Yatzi.Api`). En **HTTPS-tunnel** gør den tilgængelig på internettet, fx `https://yatzi-xxx.ngrok-free.app`.
+- **Én PC er vært** og kører serveren (`Yatzi.Api`). En **HTTPS-tunnel** gør den tilgængelig på internettet, fx `https://ord-ord-ord.ngrok-free.dev`.
 - Alle spillere – også værten – åbner tunnel-adressen i browseren og joiner **lobbyen**.
 - Man spiller **på skift** (klassisk Yatzy). Kun Oplaen hos den spiller, der har tur, kan kaste og holde.
 - **Det er ligegyldigt, om Oplaen er forbundet med USB eller WiFi.** Serveren har ét endpoint til Oplà'er – WebSocket `/ws/opla` – og får de samme beskeder begge veje.
@@ -59,10 +59,15 @@
 
 ### Opsætning
 
-- **Værten:** kør serveren og `ngrok http --url=<adressen> 5000`. En gratis ngrok-konto får tildelt én fast udviklingsadresse (`*.ngrok-free.app`), så Oplà'erne ikke skal have ny adresse hver gang. (Detaljer skrives ind efter S1.10.)
+- **Værten** (én gang):
+  1. Installér ngrok: `winget install Ngrok.Ngrok`, og derefter `ngrok update` (gratis-konti afviser gamle versioner).
+  2. Opret en gratis konto på [dashboard.ngrok.com](https://dashboard.ngrok.com/signup) og kør `ngrok config add-authtoken <token>` (tokenet er hemmeligt – del det ikke).
+- **Værten** (hver gang): start serveren (`dotnet run --project backend/Yatzi.Api`) og i en anden terminal `ngrok http 5000`. Adressen står ud for *Forwarding*. En gratis konto får én fast adresse (`*.ngrok-free.dev`), så den er den samme hver gang – del den med de andre spillere.
 - **Spillerne:** åbn tunnel-adressen i **Chrome eller Edge** (Web Serial virker ikke i Firefox/Safari).
-  - Første gang viser gratis-ngrok en **advarselsside** – klik "Visit Site".
+  - Første gang viser gratis-ngrok en **advarselsside** – klik "Visit Site". Bagefter virker siden og WebSocket'en normalt.
+  - Luk Serial Monitor (Arduino IDE/PlatformIO) – kun ét program kan bruge Oplaens COM-port ad gangen.
   - Klik "Forbind Oplà (USB)" og vælg porten. Browseren kræver, at spilleren selv klikker.
+- **Målt i S1.10:** Oplà → browser → tunnel → server og tilbage tager ca. **50 ms**, så et ryst føles øjeblikkeligt.
 - **WiFi:**
   - Netværksnavn, kode og tunnel-adressen skrives i `arduino/yatzi_controller/arduino_secrets.h`. Filen er **ikke** i git. Kopiér `arduino_secrets.example.h` og udfyld den.
   - **TLS-certifikat:** WiFi-modulet (NINA) kan kun lave WSS til servere, hvis root-certifikat er uploadet. Upload det for tunnel-adressen med Arduino IDE → *Upload SSL Root Certificates* (S3.9).

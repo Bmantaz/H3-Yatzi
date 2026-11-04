@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spike: Oplà via browser</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    button { font-size: 1rem; padding: .5rem 1rem; margin-right: .5rem; }
+    #log { background: #111; color: #ddd; padding: 1rem; height: 50vh; overflow-y: auto; font-size: .9rem; }
+    .ok { color: #7c7; } .err { color: #f77; } .ms { color: #fc6; }
+  </style>
+</head>
+<body>
+  <!-- S1.10 – spike: Oplà (USB) → Web Serial → WebSocket → server. Erstattes af browser-broen (S2.11). -->
+  <h1>Spike: Oplà via browser</h1>
+  <p>
+    <button id="connect">Forbind Oplà (USB)</button>
+    <button id="ready" disabled>Send READY</button>
+    <button id="pair" disabled>Send "PAIR 1234" til Oplaen</button>
+  </p>
+  <p id="status">WebSocket: forbinder…</p>
+  <pre id="log"></pre>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const log = (text, cls = '') => {
+      const line = document.createElement('div');
+      line.className = cls;
+      line.textContent = `${new Date().toLocaleTimeString()}  ${text}`;
+      logEl.append(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    };
+
+    // --- WebSocket til serveren (wss:// gennem tunnelen, ws:// på localhost) ---
+    const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/spike`;
+    const ws = new WebSocket(wsUrl);
+    const sentAt = []; // tidspunkter for linjer sendt til serveren, så svaret kan tidsmåles
+
+    ws.onopen = () => {
+      document.getElementById('status').textContent = `WebSocket: forbundet til ${wsUrl}`;
+      document.getElementById('ready').disabled = false;
+    };
+    ws.onclose = () => { document.getElementById('status').textContent = 'WebSocket: lukket'; log('WebSocket lukket', 'err'); };
+    ws.onerror = () => log('WebSocket-fejl', 'err');
+    ws.onmessage = (e) => {
+      const ms = sentAt.length ? Math.round(performance.now() - sentAt.shift()) : null;
+      log(`server → ${e.data}` + (ms !== null ? `   (${ms} ms frem og tilbage)` : ''), 'ms');
+      if (!e.data.startsWith('#')) writeToOpla(e.data); // protokol-linjer videre til Oplaen
+    };
+
+    const sendToServer = (line) => {
+      if (ws.readyState !== WebSocket.OPEN) return log(`kan ikke sende "${line}" – WebSocket er ikke åben`, 'err');
+      sentAt.push(performance.now());
+      ws.send(line);
+      log(`→ server ${line}`);
+    };
+
+    // --- Web Serial (kun Chrome/Edge, kræver https eller localhost) ---
+    let writer = null;
+
+    async function writeToOpla(line) {
+      if (!writer) return;
+      await writer.write(new TextEncoder().encode(line + '\n'));
+      log(`→ Oplà ${line}`, 'ok');
+    }
+
+    async function readLines(port) {
+      const reader = port.readable.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += value;
+        let i;
+        while ((i = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, i).trim();
+          buffer = buffer.slice(i + 1);
+          if (!line) continue;
+          log(`Oplà → ${line}`, 'ok');
+          if (!line.startsWith('#')) sendToServer(line); // debug-linjer bliver i browseren
+        }
+      }
+    }
+
+    document.getElementById('connect').onclick = async () => {
+      if (!('serial' in navigator)) {
+        return log('Denne browser understøtter ikke Web Serial – brug Chrome eller Edge.', 'err');
+      }
+      try {
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        writer = port.writable.getWriter();
+        document.getElementById('pair').disabled = false;
+        log('Oplà forbundet – ryst den!', 'ok');
+        readLines(port).catch((err) => log(`Læsefejl: ${err.message}`, 'err'));
+      } catch (err) {
+        log(`Kunne ikke forbinde: ${err.message}`, 'err');
+      }
+    };
+
+    document.getElementById('ready').onclick = () => sendToServer('READY');
+    document.getElementById('pair').onclick = () => writeToOpla('PAIR 1234');
+  </script>
+</body>
+</html>
