@@ -1,8 +1,12 @@
+// Starter HTTP-backenden, registrerer den delte spiltilstand og serverer frontenden.
+// GameEndpoints håndterer HTTP, GameSession ejer spillet, og Yatzi.Core har reglerne.
 using Microsoft.Extensions.FileProviders;
+using Yatzi.Api;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// TODO: registrér services, fx spillets tilstand og forbindelsen til Oplaen (DoD 5)
+// Alle HTTP-kald deler én session; selve spillet oprettes først af POST /api/game/new.
+builder.Services.AddSingleton<GameSession>();
 
 var app = builder.Build();
 
@@ -19,7 +23,9 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapSpike(); // S1.10 – midlertidigt, se Spike.cs
 
-// TODO: endpoints til spillet, fx under /api/game
+app.MapGameApi();
+
+// TODO: Oplà-integration gennem beskedhåndtering og /ws/opla.
 
 app.Run();
 
