@@ -17,6 +17,8 @@ if (Directory.Exists(frontendPath))
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 
+app.MapSpike(); // S1.10 – midlertidigt, se Spike.cs
+
 // TODO: endpoints til spillet, fx under /api/game
 
 app.Run();
