@@ -18,6 +18,7 @@ MKRIoTCarrier carrier;
 
 void setup() {
   Serial.begin(115200);
+  carrier.withCase();      // brug carrier.withCase(); hvis casen sidder på
   carrier.begin();
 
   shakeSetup();
@@ -31,7 +32,9 @@ void loop() {
 
   int die = diceTouched();  // 1–5, eller 0 hvis ingen knap er trykket
   if (die > 0) {
-    // TODO (S1.4): send hold-beskeden fra docs/protocol.md
+    // Tryk på touch-knap n = hold/slip terning n. Serveren skifter selv tilstand (docs/protocol.md).
+    Serial.print("HOLD ");
+    Serial.println(die);
   }
 
   // TODO (S2.2): læs status-beskeder fra backend og send dem videre til dice_input/skærm
