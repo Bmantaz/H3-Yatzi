@@ -3,13 +3,48 @@
 
 extern MKRIoTCarrier carrier;
 
+// Touch-knap -> terning: TOUCH0 = terning 1 ... TOUCH4 = terning 5.
+static const touchButtons TOUCH_FOR_DIE[5] = { TOUCH0, TOUCH1, TOUCH2, TOUCH3, TOUCH4 };
+
+// Touch-signalet kan flimre, især med plastikcase. Et nyt tryk tæller derfor først,
+// når knappen har været sluppet så længe (ms). Ret tallet, hvis det er for træg/følsomt.
+static const unsigned long RELEASE_MS = 80;
+
+static bool touchedBefore[5]          = { false, false, false, false, false };
+static unsigned long releasedAt[5]    = { 0, 0, 0, 0, 0 };
+
 void diceInputSetup() {
   // TODO: evt. lysstyrke for LED'erne
 }
 
 int diceTouched() {
-  // TODO (S1.4): carrier.Buttons.update() og tjek TOUCH0–TOUCH4 med onTouchDown
-  return 0;
+  // Opdaterer touch-tilstanden. Må kun kaldes én gang pr. loop().
+  carrier.Buttons.update();
+
+  unsigned long now = millis();
+  int result = 0;
+
+  for (int i = 0; i < 5; i++) {
+    bool touched = carrier.Buttons.getTouch(TOUCH_FOR_DIE[i]);
+
+    if (!touched) {
+      if (touchedBefore[i]) {
+        releasedAt[i] = now;  // knappen blev lige sluppet
+      }
+      touchedBefore[i] = false;
+      continue;
+    }
+
+    // Rørt nu. Kun skiftet fra "ikke rørt" -> "rørt" er et nyt tryk,
+    // så en finger der hviler på knappen giver ikke flere beskeder.
+    bool newPress = !touchedBefore[i];
+    touchedBefore[i] = true;
+
+    if (newPress && result == 0 && now - releasedAt[i] >= RELEASE_MS) {
+      result = i + 1;  // terning 1–5
+    }
+  }
+  return result;
 }
 
 void showHeldDice(const bool held[5]) {
