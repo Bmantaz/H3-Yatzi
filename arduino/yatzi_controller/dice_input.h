@@ -8,3 +8,6 @@ int diceTouched();
 
 // Sætter LED'erne ud fra hvilke terninger der holdes (held[0..4]).
 void showHeldDice(const bool held[5]);
+
+// Skifter hold/slip for terning 1–5 (S1.5): gemmer status og opdaterer LED'erne.
+void diceToggleHeld(int die);

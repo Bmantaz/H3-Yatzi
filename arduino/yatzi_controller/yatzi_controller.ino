@@ -35,6 +35,7 @@ void loop() {
     // Tryk på touch-knap n = hold/slip terning n. Serveren skifter selv tilstand (docs/protocol.md).
     Serial.print("HOLD ");
     Serial.println(die);
+    diceToggleHeld(die);  // S1.5: gem status og tænd/sluk grøn LED (erstattes af serverens STATE i S2.3)
   }
 
   // TODO (S2.2): læs status-beskeder fra backend og send dem videre til dice_input/skærm

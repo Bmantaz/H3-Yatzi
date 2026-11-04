@@ -13,8 +13,16 @@ static const unsigned long RELEASE_MS = 80;
 static bool touchedBefore[5]          = { false, false, false, false, false };
 static unsigned long releasedAt[5]    = { 0, 0, 0, 0, 0 };
 
+static const int LED_FOR_DIE[5] = { 0, 1, 2, 3, 4 };
+
+// Grøn LED for en holdt terning. Lav værdi = ikke blændende kraftigt.
+static const int GREEN_R = 0, GREEN_G = 120, GREEN_B = 0;
+
+// Hold-status for terning 1–5 (index 0–4). true = holdt.
+static bool heldState[5] = { false, false, false, false, false };
+
 void diceInputSetup() {
-  // TODO: evt. lysstyrke for LED'erne
+  showHeldDice(heldState);  // start med alle LED'er slukket
 }
 
 int diceTouched() {
@@ -48,6 +56,18 @@ int diceTouched() {
 }
 
 void showHeldDice(const bool held[5]) {
-  // TODO (S1.5): grøn LED over holdte terninger – find ud af hvilken LED der sidder ved hvilken knap
-  (void)held;
+ for (int i = 0; i < 5; i++) {
+    if (held[i]) {
+      carrier.leds.setPixelColor(LED_FOR_DIE[i], GREEN_R, GREEN_G, GREEN_B);
+    } else {
+      carrier.leds.setPixelColor(LED_FOR_DIE[i], 0, 0, 0);
+    }
+  }
+  carrier.leds.show();
+}
+
+void diceToggleHeld(int die) {
+  if (die < 1 || die > 5) return;
+  heldState[die - 1] = !heldState[die - 1]; //// nyt tryk på en holdt terning slipper den igen
+  showHeldDice(heldState);
 }
