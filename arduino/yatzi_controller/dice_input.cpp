@@ -8,7 +8,7 @@ static const touchButtons TOUCH_FOR_DIE[5] = { TOUCH0, TOUCH1, TOUCH2, TOUCH3, T
 
 // Touch-signalet kan flimre, især med plastikcase. Et nyt tryk tæller derfor først,
 // når knappen har været sluppet så længe (ms). Ret tallet, hvis det er for træg/følsomt.
-static const unsigned long RELEASE_MS = 80;
+static const unsigned long RELEASE_MS = 120;
 
 static bool touchedBefore[5]          = { false, false, false, false, false };
 static unsigned long releasedAt[5]    = { 0, 0, 0, 0, 0 };
@@ -18,11 +18,10 @@ static const int LED_FOR_DIE[5] = { 0, 1, 2, 3, 4 };
 // Grøn LED for en holdt terning. Lav værdi = ikke blændende kraftigt.
 static const int GREEN_R = 0, GREEN_G = 120, GREEN_B = 0;
 
-// Hold-status for terning 1–5 (index 0–4). true = holdt.
-static bool heldState[5] = { false, false, false, false, false };
-
 void diceInputSetup() {
-  showHeldDice(heldState);  // start med alle LED'er slukket
+  // Start med alle LED'er slukket. Derefter følger de serverens STATE.
+  const bool none[5] = { false, false, false, false, false };
+  showHeldDice(none);
 }
 
 int diceTouched() {
@@ -55,8 +54,9 @@ int diceTouched() {
   return result;
 }
 
+// Sætter LED'erne ud fra hvilke terninger der er holdt. Kaldes med serverens STATE/WAIT/END.
 void showHeldDice(const bool held[5]) {
- for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 5; i++) {
     if (held[i]) {
       carrier.leds.setPixelColor(LED_FOR_DIE[i], GREEN_R, GREEN_G, GREEN_B);
     } else {
@@ -64,10 +64,4 @@ void showHeldDice(const bool held[5]) {
     }
   }
   carrier.leds.show();
-}
-
-void diceToggleHeld(int die) {
-  if (die < 1 || die > 5) return;
-  heldState[die - 1] = !heldState[die - 1]; //// nyt tryk på en holdt terning slipper den igen
-  showHeldDice(heldState);
 }
