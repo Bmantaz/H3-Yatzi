@@ -125,13 +125,12 @@ void loop() {
     }
   }
 
-  int die = diceTouched();  // 1–5, eller 0 hvis ingen knap er trykket
+    int die = diceTouched();  // 1–5, eller 0 hvis ingen knap er trykket
   if (die > 0 && shakeMoving()) {
     die = 0;  // hånden rammer touch-knapperne når man ryster – ikke et rigtigt tryk
   }
   if (die > 0) {
     // Tryk på touch-knap n = hold/slip terning n. Serveren skifter selv tilstand (docs/protocol.md).
     linkSend("HOLD " + String(die));
-    diceToggleHeld(die);  // S1.5: gem status og tænd/sluk grøn LED (erstattes af serverens STATE i S2.3)
   }
 }
