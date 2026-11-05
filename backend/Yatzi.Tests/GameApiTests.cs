@@ -590,13 +590,13 @@ public class GameApiTests : IDisposable
         string json = await response.Content.ReadAsStringAsync();
         using var document = JsonDocument.Parse(json);
         var state = document.RootElement;
-        Assert.Equal(
-            new[] { "currentPlayer", "dice", "held", "players", "rollsUsed" },
-            state.EnumerateObject().Select(property => property.Name).OrderBy(name => name).ToArray());
+        GameStateAssertions.AssertJsonShape(state);
+        Assert.False(state.GetProperty("turnCompleted").GetBoolean());
 
         var players = state.GetProperty("players");
         Assert.Equal(1, players.GetArrayLength());
-        Assert.Equal("name", Assert.Single(players[0].EnumerateObject()).Name);
+        Assert.All(players[0].GetProperty("scorecard").GetProperty("scores").EnumerateObject(),
+            field => Assert.Equal(JsonValueKind.Null, field.Value.ValueKind));
         Assert.Equal(expectedName, players[0].GetProperty("name").GetString());
         Assert.Equal(0, state.GetProperty("currentPlayer").GetInt32());
         Assert.Equal(expectedRollsUsed, state.GetProperty("rollsUsed").GetInt32());

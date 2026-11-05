@@ -1,4 +1,5 @@
 using Yatzi.Api;
+using Yatzi.Core;
 
 namespace Yatzi.Tests;
 
@@ -69,10 +70,10 @@ public class GameSessionTests
 
         created.Dice[0] = 6;
         created.Held[0] = true;
-        created.Players[0] = new PlayerResponse("Frederik");
+        created.Players[0] = created.Players[0] with { Name = "Frederik" };
         firstRead.Dice[1] = 5;
         firstRead.Held[1] = true;
-        firstRead.Players[0] = new PlayerResponse("Bjarke");
+        firstRead.Players[0] = firstRead.Players[0] with { Name = "Bjarke" };
 
         var unchanged = session.GetState();
 
@@ -86,5 +87,83 @@ public class GameSessionTests
         Assert.False(firstRead.Held[0]);
         Assert.Equal(0, created.Dice[1]);
         Assert.False(created.Held[1]);
+    }
+
+    [Fact]
+    public void FieldChoice_WithoutGameReturnsNull()
+    {
+        var session = new GameSession();
+
+        Assert.Null(session.Score(ScoreCategory.Chance));
+        Assert.Null(session.Strike(ScoreCategory.Chance));
+        Assert.Null(session.GetState());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FieldChoiceAndNewGame_PreserveEarlierSnapshots(bool strike)
+    {
+        var session = new GameSession();
+        var start = session.NewGame("Andreas");
+        var first = session.Roll()!;
+        var firstPossible = first.PossibleScores.ToDictionary(entry => entry.Key, entry => entry.Value);
+        var held = session.ToggleHold(1)!;
+        var second = session.Roll()!;
+        var secondPossible = second.PossibleScores.ToDictionary(entry => entry.Key, entry => entry.Value);
+
+        var scored = strike ? session.Strike(ScoreCategory.Chance)! : session.Score(ScoreCategory.Chance)!;
+        var expectedScored = session.GetState()!;
+        var replacement = session.NewGame("Frederik");
+
+        Assert.All(start.Players[0].Scorecard.Scores.Values, score => Assert.Null(score));
+        Assert.Empty(start.PossibleScores);
+        Assert.All(first.Players[0].Scorecard.Scores.Values, score => Assert.Null(score));
+        Assert.All(second.Players[0].Scorecard.Scores.Values, score => Assert.Null(score));
+        Assert.False(first.TurnCompleted);
+        Assert.False(second.TurnCompleted);
+        Assert.All(first.Held, value => Assert.False(value));
+        Assert.True(held.Held[1]);
+        Assert.Equal(firstPossible.OrderBy(entry => entry.Key), first.PossibleScores.OrderBy(entry => entry.Key));
+        Assert.Equal(secondPossible.OrderBy(entry => entry.Key), second.PossibleScores.OrderBy(entry => entry.Key));
+        GameStateAssertions.Equal(expectedScored, scored);
+        Assert.Equal(strike ? 0 : second.Dice.Sum(), scored.Players[0].Scorecard.Scores["chance"]);
+        Assert.True(scored.TurnCompleted);
+        Assert.Equal(second.Dice, scored.Dice);
+        Assert.Equal(second.Held, scored.Held);
+        Assert.Equal(second.RollsUsed, scored.RollsUsed);
+        Assert.Empty(scored.PossibleScores);
+        Assert.All(replacement.Players[0].Scorecard.Scores.Values, score => Assert.Null(score));
+        Assert.False(replacement.TurnCompleted);
+        Assert.NotSame(first.Players[0], second.Players[0]);
+        Assert.NotSame(first.Players[0].Scorecard, second.Players[0].Scorecard);
+        Assert.NotSame(first.Players[0].Scorecard.Scores, second.Players[0].Scorecard.Scores);
+        Assert.NotSame(first.PossibleScores, second.PossibleScores);
+    }
+
+    [Fact]
+    public void ReturnedDictionaries_CannotChangeGameOtherResponsesOrFutureFieldChoice()
+    {
+        var session = new GameSession();
+        session.NewGame("Andreas");
+        var rolled = session.Roll()!;
+        var other = session.GetState()!;
+        var expected = session.GetState()!;
+
+        rolled.Players[0].Scorecard.Scores["chance"] = 999;
+        rolled.Players[0].Scorecard.Scores.Remove("ones");
+        rolled.PossibleScores["chance"] = 999;
+        rolled.PossibleScores.Clear();
+        GameStateAssertions.Equal(expected, other);
+        GameStateAssertions.Equal(expected, session.GetState()!);
+
+        var scored = session.Score(ScoreCategory.Chance)!;
+        var scoredCopy = session.GetState()!;
+        scored.Players[0].Scorecard.Scores.Clear();
+        scored.PossibleScores["chance"] = 999;
+
+        Assert.Equal(expected.Dice.Sum(), scoredCopy.Players[0].Scorecard.Scores["chance"]);
+        GameStateAssertions.Equal(scoredCopy, session.GetState()!);
+        GameStateAssertions.Equal(expected, other);
     }
 }

@@ -1,8 +1,12 @@
+using System.Collections.ObjectModel;
+
 namespace Yatzi.Core;
 
 /// <summary>
 /// Spillets tilstand og regler i backendens kerne, uafhængigt af web og hardware.
-/// Andre komponenter kan læse tilstanden, mens ændringer styres af Game.
+/// Ejer én privat pointtavle og styrer kast, hold/slip og ét feltvalg pr. tur.
+/// Andre komponenter har kun læseadgang. Klassen har ingen egen lås;
+/// fælles adgang fra HTTP og Oplà beskyttes af GameSession i API-laget.
 /// </summary>
 public class Game
 {
@@ -12,6 +16,7 @@ public class Game
     private readonly int[] _dice = new int[DiceCount];
     private readonly bool[] _held = new bool[DiceCount];
     private readonly Random _random;
+    private readonly Scorecard _scorecard = new();
 
     /// <summary>
     /// Terningernes værdier ved indeks 0–4. Værdien 0 betyder endnu ikke kastet;
@@ -31,6 +36,58 @@ public class Game
     public int RollsUsed { get; private set; }
 
     /// <summary>
+    /// Løbende, skrivebeskyttet visning af spillerens 15 pointfelter.
+    /// Null betyder ledigt; også et gemt nul låser feltet. API-svar skal kopiere visningen.
+    /// </summary>
+    public IReadOnlyDictionary<ScoreCategory, int?> Scores => _scorecard.Scores;
+
+    /// <summary>
+    /// Gemte point i de seks øvre felter, beregnet af pointtavlen ved læsning.
+    /// </summary>
+    public int UpperSum => _scorecard.UpperSum;
+
+    /// <summary>
+    /// Pointtavlens bonus: 50 ved en øvre sum på mindst 63, ellers 0.
+    /// </summary>
+    public int Bonus => _scorecard.Bonus;
+
+    /// <summary>
+    /// Alle gemte feltpoint plus pointtavlens bonus én gang.
+    /// </summary>
+    public int Total => _scorecard.Total;
+
+    /// <summary>
+    /// True efter ét accepteret feltvalg. Turens terninger, hold og slag bevares,
+    /// mens flere handlinger afvises. Næste tur tilføjes i opgave #44.
+    /// </summary>
+    public bool TurnCompleted { get; private set; }
+
+    /// <summary>
+    /// Beregner mulige point, inklusive 0, for alle ledige felter fra de aktuelle terninger.
+    /// Returnerer et selvstændigt, skrivebeskyttet øjebliksbillede uden sideeffekter.
+    /// Før første kast og efter turafslutning er resultatet tomt.
+    /// </summary>
+    public IReadOnlyDictionary<ScoreCategory, int> PossibleScores
+    {
+        get
+        {
+            var scores = new Dictionary<ScoreCategory, int>();
+            if (RollsUsed > 0 && !TurnCompleted)
+            {
+                foreach (var entry in _scorecard.Scores)
+                {
+                    if (!entry.Value.HasValue)
+                    {
+                        scores.Add(entry.Key, ScoreCalculator.Calculate(Dice, entry.Key));
+                    }
+                }
+            }
+
+            return new ReadOnlyDictionary<ScoreCategory, int>(scores);
+        }
+    }
+
+    /// <summary>
     /// Opretter en starttilstand med den fælles tilfældighedskilde fra .NET.
     /// </summary>
     public Game() : this(Random.Shared)
@@ -38,7 +95,7 @@ public class Game
     }
 
     /// <summary>
-    /// Opretter en starttilstand med fem uslåede terninger og egne arrays pr. spilinstans.
+    /// Opretter en åben tur med fem uslåede terninger, egne arrays og en tom pointtavle.
     /// </summary>
     /// <param name="random">Tilfældighedskilden, som bruges ved kast og kan styres i tests.</param>
     /// <exception cref="ArgumentNullException">Tilfældighedskilden er null.</exception>
@@ -58,9 +115,11 @@ public class Game
     /// Terningeværdierne opdateres i de eksisterende arrays; hold-status bevares.
     /// Et kast bruger stadig ét slag, hvis alle fem terninger er holdt.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Turens tre slag er allerede brugt.</exception>
+    /// <exception cref="InvalidOperationException">Turen er afsluttet, eller dens tre slag er brugt.</exception>
     public void Roll()
     {
+        EnsureTurnActive();
+
         // Afvis før tilfældighedskilden bruges, så et ekstra kast ikke ændrer tilstanden.
         if (RollsUsed >= MaxRolls)
         {
@@ -85,7 +144,7 @@ public class Game
     /// </summary>
     /// <param name="index">Terningens indeks fra 0 til 4. Oplàens numre 1–5 omsættes i kommunikationslaget.</param>
     /// <exception cref="ArgumentOutOfRangeException">Indekset er uden for intervallet 0–4.</exception>
-    /// <exception cref="InvalidOperationException">Der er endnu ikke kastet, eller alle tre slag er brugt.</exception>
+    /// <exception cref="InvalidOperationException">Turen er afsluttet, der er endnu ikke kastet, eller alle tre slag er brugt.</exception>
     public void ToggleHold(int index)
     {
         if (index < 0 || index >= DiceCount)
@@ -93,6 +152,8 @@ public class Game
             throw new ArgumentOutOfRangeException(nameof(index), index,
                 "Terningens indeks skal være mellem 0 og 4.");
         }
+
+        EnsureTurnActive();
 
         if (RollsUsed < 1 || RollsUsed >= MaxRolls)
         {
@@ -102,5 +163,72 @@ public class Game
         _held[index] = !_held[index];
     }
 
-    // TODO: spillere, pointberegning og spillets afslutning.
+    /// <summary>
+    /// Beregner og gemmer point fra spillets egne terninger og afslutter turen.
+    /// Også et beregnet nul bruger feltet. Terninger, hold og brugte slag bevares.
+    /// Afvisninger bevarer hele tilstanden og bruger ingen tilfældighed.
+    /// </summary>
+    /// <param name="category">Et kendt, ledigt pointfelt.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Feltet er ukendt.</exception>
+    /// <exception cref="InvalidOperationException">Turen er afsluttet, der er endnu ikke kastet, eller feltet er udfyldt.</exception>
+    public void Score(ScoreCategory category)
+    {
+        EnsureCanScore(category);
+        _scorecard.Record(Dice, category);
+
+        // Lås først turen efter vellykket registrering, så en afvisning ikke bruger turen.
+        TurnCompleted = true;
+    }
+
+    /// <summary>
+    /// Gemmer 0 i et ledigt felt og afslutter turen efter mindst ét kast.
+    /// Tillades også, når feltet kunne give point. Terninger, hold og slag bevares;
+    /// afvisninger ændrer ingen tilstand og bruger ingen tilfældighed.
+    /// </summary>
+    /// <param name="category">Et kendt, ledigt pointfelt.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Feltet er ukendt.</exception>
+    /// <exception cref="InvalidOperationException">Turen er afsluttet, der er endnu ikke kastet, eller feltet er udfyldt.</exception>
+    public void Strike(ScoreCategory category)
+    {
+        EnsureCanScore(category);
+        _scorecard.Strike(category);
+        TurnCompleted = true;
+    }
+
+    /// <summary>
+    /// Kontrollerer input og tur før feltvalg. Inputfejl har forrang;
+    /// derefter afvises en afsluttet tur før andre spilregelafvisninger.
+    /// Pointtavlen kontrollerer efterfølgende, at feltet er ledigt.
+    /// </summary>
+    /// <param name="category">Feltet, som ønskes udfyldt.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Feltet er ukendt.</exception>
+    /// <exception cref="InvalidOperationException">Turen er afsluttet, eller der er endnu ikke kastet.</exception>
+    private void EnsureCanScore(ScoreCategory category)
+    {
+        if (!Enum.IsDefined(category))
+        {
+            throw new ArgumentOutOfRangeException(nameof(category), category, "Pointfeltet er ukendt.");
+        }
+
+        EnsureTurnActive();
+        if (RollsUsed < 1)
+        {
+            throw new InvalidOperationException("Kast terningerne, før du vælger et pointfelt.");
+        }
+    }
+
+    /// <summary>
+    /// Fælles kontrol før kast, hold/slip og feltvalg, uden at ændre tilstanden.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Et feltvalg har allerede afsluttet turen.</exception>
+    private void EnsureTurnActive()
+    {
+        if (TurnCompleted)
+        {
+            throw new InvalidOperationException(
+                "Turen er afsluttet. Der kan ikke udføres flere handlinger i denne tur.");
+        }
+    }
+
+    // TODO: næste tur, flere spillere og spillets afslutning i opgave #44.
 }

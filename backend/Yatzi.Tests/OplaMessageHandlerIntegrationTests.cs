@@ -217,6 +217,82 @@ public class OplaMessageHandlerIntegrationTests : IDisposable
         AssertSameState(before, await GetStateAsync(client));
     }
 
+    [Theory]
+    [InlineData("score")]
+    [InlineData("strike")]
+    public async Task HttpFieldChoice_ClosesHandlerUntilNewGame(string method)
+    {
+        using var client = _factory.CreateClient();
+        var handler = _factory.Services.GetRequiredService<OplaMessageHandler>();
+        await CreateGameAsync(client, "Andreas");
+        Assert.Equal("STATE 1 00000", Assert.Single(handler.HandleLine("ROLL")));
+        Assert.Equal("STATE 1 01000", Assert.Single(handler.HandleLine("HOLD 2")));
+
+        using var response = await client.PostAsync($"/api/game/{method}/chance", null);
+        var completed = await ReadStateAsync(response);
+
+        Assert.True(completed.TurnCompleted);
+        Assert.Empty(handler.HandleLine("ROLL"));
+        Assert.Empty(handler.HandleLine("HOLD 2"));
+        AssertSameState(completed, await GetStateAsync(client));
+
+        await CreateGameAsync(client, "Frederik");
+        Assert.Equal("STATE 1 00000", Assert.Single(handler.HandleLine("ROLL")));
+        AssertState(await GetStateAsync(client), "Frederik", 1, "00000");
+    }
+
+    [Theory]
+    [InlineData("ROLL")]
+    [InlineData("HOLD 2")]
+    public async Task ConcurrentHttpScoreAndHandlerAction_FollowOneLegalOrder(string command)
+    {
+        using var client = _factory.CreateClient();
+        var handler = _factory.Services.GetRequiredService<OplaMessageHandler>();
+        await CreateGameAsync(client, "Andreas");
+        handler.HandleLine("ROLL");
+        var before = await GetStateAsync(client);
+        var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handlerTask = Task.Run(async () =>
+        {
+            await start.Task;
+            return handler.HandleLine(command);
+        });
+        var httpTask = Task.Run(async () =>
+        {
+            await start.Task;
+            return await client.PostAsync("/api/game/score/chance", null);
+        });
+        start.SetResult(true);
+        var replies = await handlerTask;
+        using var response = await httpTask;
+        var scored = await ReadStateAsync(response);
+
+        Assert.True(scored.TurnCompleted);
+        Assert.Equal(scored.Dice.Sum(), scored.Players[0].Scorecard.Scores["chance"]);
+        Assert.Single(scored.Players[0].Scorecard.Scores, entry => entry.Value.HasValue);
+        Assert.Empty(scored.PossibleScores);
+        if (replies.Count == 0)
+        {
+            Assert.Equal(before.RollsUsed, scored.RollsUsed);
+            Assert.Equal(before.Dice, scored.Dice);
+            Assert.Equal(before.Held, scored.Held);
+        }
+        else if (command == "ROLL")
+        {
+            Assert.Equal("STATE 2 00000", Assert.Single(replies));
+            Assert.Equal(2, scored.RollsUsed);
+            Assert.All(scored.Held, value => Assert.False(value));
+        }
+        else
+        {
+            Assert.Equal("STATE 1 01000", Assert.Single(replies));
+            Assert.Equal(1, scored.RollsUsed);
+            Assert.Equal(before.Dice, scored.Dice);
+            Assert.Equal(new[] { false, true, false, false, false }, scored.Held);
+        }
+        AssertSameState(scored, await GetStateAsync(client));
+    }
+
     private static async Task CreateGameAsync(HttpClient client, string name)
     {
         using var response = await client.PostAsJsonAsync("/api/game/new", new { name });
@@ -233,11 +309,7 @@ public class OplaMessageHandlerIntegrationTests : IDisposable
     // Her bruges DTO'en til at sammenligne indgangenes faktiske spiltilstand.
     private static async Task<GameStateResponse> ReadStateAsync(HttpResponseMessage response)
     {
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
-        var state = await response.Content.ReadFromJsonAsync<GameStateResponse>();
-        Assert.NotNull(state);
-        return state;
+        return await GameStateAssertions.ReadHttpStateAsync(response);
     }
 
     private static void AssertState(GameStateResponse state, string name, int rollsUsed, string heldPattern)
@@ -254,11 +326,7 @@ public class OplaMessageHandlerIntegrationTests : IDisposable
 
     private static void AssertSameState(GameStateResponse expected, GameStateResponse actual)
     {
-        Assert.Equal(expected.Players, actual.Players);
-        Assert.Equal(expected.CurrentPlayer, actual.CurrentPlayer);
-        Assert.Equal(expected.Dice, actual.Dice);
-        Assert.Equal(expected.Held, actual.Held);
-        Assert.Equal(expected.RollsUsed, actual.RollsUsed);
+        GameStateAssertions.Equal(expected, actual);
     }
 
     public void Dispose() => _factory.Dispose();

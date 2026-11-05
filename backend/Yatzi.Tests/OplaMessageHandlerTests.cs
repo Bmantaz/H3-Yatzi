@@ -431,6 +431,49 @@ public class OplaMessageHandlerTests
         }
     }
 
+    [Theory]
+    [InlineData(false, "ROLL")]
+    [InlineData(false, "HOLD 1")]
+    [InlineData(false, "HOLD 2")]
+    [InlineData(false, "HOLD 3")]
+    [InlineData(false, "HOLD 4")]
+    [InlineData(false, "HOLD 5")]
+    [InlineData(true, "ROLL")]
+    [InlineData(true, "HOLD 1")]
+    [InlineData(true, "HOLD 2")]
+    [InlineData(true, "HOLD 3")]
+    [InlineData(true, "HOLD 4")]
+    [InlineData(true, "HOLD 5")]
+    public void CompletedTurn_LogsOneWarningAndNewGameReusesHandler(bool strike, string line)
+    {
+        var session = new GameSession();
+        session.NewGame("Andreas");
+        session.Roll();
+        session.ToggleHold(1);
+        var before = strike
+            ? session.Strike(Yatzi.Core.ScoreCategory.Chance)!
+            : session.Score(Yatzi.Core.ScoreCategory.Chance)!;
+        var logger = new RecordingLogger();
+        var handler = new OplaMessageHandler(session, logger);
+
+        Assert.Empty(handler.HandleLine(line));
+
+        GameStateAssertions.Equal(before, session.GetState()!);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Contains(line, entry.Message);
+        Assert.Contains("Turen er afsluttet. Der kan ikke udføres flere handlinger i denne tur.", entry.Message);
+
+        session.NewGame("Frederik");
+
+        Assert.Equal("STATE 1 00000", Assert.Single(handler.HandleLine("ROLL")));
+        var replacement = session.GetState()!;
+        Assert.Equal("Frederik", replacement.Players[0].Name);
+        Assert.All(replacement.Players[0].Scorecard.Scores.Values, score => Assert.Null(score));
+        Assert.False(replacement.TurnCompleted);
+        Assert.Single(logger.Entries);
+    }
+
     private static void AssertInvalidInputWarning(RecordingLogger logger, int? expectedLength)
     {
         var entry = Assert.Single(logger.Entries);
@@ -443,11 +486,7 @@ public class OplaMessageHandlerTests
     private static void AssertStateUnchanged(GameStateResponse expected, GameStateResponse? actual)
     {
         Assert.NotNull(actual);
-        Assert.Equal(expected.Players, actual.Players);
-        Assert.Equal(expected.CurrentPlayer, actual.CurrentPlayer);
-        Assert.Equal(expected.Dice, actual.Dice);
-        Assert.Equal(expected.Held, actual.Held);
-        Assert.Equal(expected.RollsUsed, actual.RollsUsed);
+        GameStateAssertions.Equal(expected, actual);
     }
 
     /// <summary>
