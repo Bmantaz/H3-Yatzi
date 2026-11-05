@@ -1,48 +1,58 @@
 // H3 Yatzi frontend
 //
-// Bruger mockApi indtil API'et er klar, skiftes ud i S1.9.
-// Tilstanden vi forventer fra GET /api/game:
+// Tilstanden fra /api/game (se docs/api.md):
 // {
-//   players:       [{ name: "Frederik" }],
-//   currentPlayer: 0,                 // hvis tur det er (index i players)
-//   dice:          [0, 0, 0, 0, 0],   // 1-6, 0 = ikke slået endnu
-//   held:          [false, false, false, false, false],
-//   rollsUsed:     0                  // 0-3
+//   players:        [{ name: "Frederik", scorecard: {...} }],
+//   currentPlayer:  0,
+//   dice:           [0, 0, 0, 0, 0],   // 1-6, 0 = ikke slået endnu
+//   held:           [false, false, false, false, false],
+//   rollsUsed:      0,
+//   possibleScores: {},
+//   turnCompleted:  false
 // }
 
 const MAX_ROLLS = 3;
 const DICE_COUNT = 5;
 
-// Mock af backend
-const mockApi = {
-  state: null,
+async function request(path, options) {
+  let res;
+  try {
+    res = await fetch(path, options);
+  } catch {
+    throw new Error("Ingen forbindelse til serveren.");
+  }
 
-  async newGame(name) {
-    this.state = {
-      players: [{ name }],
-      currentPlayer: 0,
-      dice: Array(DICE_COUNT).fill(0),
-      held: Array(DICE_COUNT).fill(false),
-      rollsUsed: 0,
-    };
-    return structuredClone(this.state);
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = new Error(data?.message || "Serveren svarede med en fejl.");
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+const api = {
+  getGame() {
+    return request("/api/game");
   },
 
-  async roll() {
-    const s = this.state;
-    s.dice = s.dice.map((value, i) => (s.held[i] ? value : 1 + Math.floor(Math.random() * 6)));
-    s.rollsUsed++;
-    return structuredClone(s);
+  newGame(name) {
+    return request("/api/game/new", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
   },
 
-  async toggleHold(index) {
-    const s = this.state;
-    s.held[index] = !s.held[index];
-    return structuredClone(s);
+  roll() {
+    return request("/api/game/roll", { method: "POST" });
+  },
+
+  // API'et tæller terninger 1-5
+  toggleHold(index) {
+    return request(`/api/game/hold/${index + 1}`, { method: "POST" });
   },
 };
-
-const api = mockApi;
 
 const el = {
   startScreen: document.getElementById("start-screen"),
@@ -53,6 +63,7 @@ const el = {
   dice: document.getElementById("dice"),
   rollCount: document.getElementById("roll-count"),
   rollBtn: document.getElementById("roll-btn"),
+  newGameBtn: document.getElementById("new-game-btn"),
   message: document.getElementById("message"),
 };
 
@@ -104,18 +115,22 @@ function renderDie(die, index, value, held, canHold) {
 }
 
 // Tegner hele skærmen ud fra tilstanden
-
 function render(state) {
+  el.startScreen.hidden = true;
+  el.gameScreen.hidden = false;
+
   const player = state.players[state.currentPlayer];
   el.turn.textContent = `${possessive(player.name)} tur`;
 
-  const canHold = state.rollsUsed > 0 && state.rollsUsed < MAX_ROLLS;
+  const canHold = !state.turnCompleted && state.rollsUsed > 0 && state.rollsUsed < MAX_ROLLS;
   [...el.dice.children].forEach((die, i) => renderDie(die, i, state.dice[i], state.held[i], canHold));
 
   el.rollCount.textContent = `Slag ${state.rollsUsed}/${MAX_ROLLS}`;
-  el.rollBtn.disabled = state.rollsUsed >= MAX_ROLLS;
+  el.rollBtn.disabled = state.turnCompleted || state.rollsUsed >= MAX_ROLLS;
 
-  if (state.rollsUsed >= MAX_ROLLS) {
+  if (state.turnCompleted) {
+    showMessage("Turen er afsluttet.");
+  } else if (state.rollsUsed >= MAX_ROLLS) {
     showMessage("Alle slag er brugt. Vælg et felt på pointtavlen.");
   }
 }
@@ -130,12 +145,18 @@ function showMessage(text, isError = false) {
   el.message.classList.toggle("error", isError);
 }
 
+let busy = false; // så et dobbeltklik på Kast ikke bruger to slag
+
 async function run(action) {
+  if (busy) return;
+  busy = true;
   try {
     showMessage("");
     render(await action());
   } catch (err) {
     showMessage(err.message, true);
+  } finally {
+    busy = false;
   }
 }
 
@@ -156,9 +177,14 @@ el.startForm.addEventListener("submit", (event) => {
   const name = el.nameInput.value.trim();
   if (!name) return;
 
-  el.startScreen.hidden = true;
-  el.gameScreen.hidden = false;
   run(() => api.newGame(name));
+});
+
+el.newGameBtn.addEventListener("click", () => {
+  showMessage("");
+  el.gameScreen.hidden = true;
+  el.startScreen.hidden = false;
+  el.nameInput.focus();
 });
 
 // Kort ryste-effekt på de terninger der ikke holdes. Rigtig animation kommer i S2.7.
@@ -172,7 +198,9 @@ function rollAnimation() {
 
 createDice();
 
-fetch("/api/health")
-  .then((res) => res.json())
-  .then((data) => console.log("Backend:", data.status))
-  .catch(() => console.warn("Backend svarer ikke, bruger mock-data"));
+// 404 = intet spil endnu, så bliver startskærmen stående
+api.getGame()
+  .then(render)
+  .catch((err) => {
+    if (err.status !== 404) showMessage(err.message, true);
+  });
