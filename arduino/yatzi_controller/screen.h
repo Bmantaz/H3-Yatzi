@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-void screenSetup();
+void screenSetup();                   // viser "Forbinder..." indtil serveren svarer
 
 void showPair(const String& code);    // PAIR cccc   – koden der skal skrives i lobbyen
 void showJoined(const String& name);  // JOINED navn – parret med spilleren

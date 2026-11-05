@@ -13,6 +13,13 @@ const unsigned long SHAKE_QUIET_MS = 1000;    // så længe skal Oplaen have væ
 
 static unsigned long lastPeak = 0;  // sidste gang total var over tærsklen
 
+// Touch-knapperne reagerer på hånden, når man ryster (set i S2.4-testen). Derfor regnes
+// Oplaen som "i bevægelse", når total afviger så meget fra 1 g, og så længe efter.
+const float MOVE_THRESHOLD = 0.4;             // g
+const unsigned long MOVE_QUIET_MS = 700;
+
+static unsigned long lastMove = 0;  // sidste gang Oplaen var i bevægelse
+
 void shakeSetup() {
   // Accelerometeret startes af carrier.begin() i .ino
 }
@@ -35,6 +42,10 @@ bool shakeDetected() {
   Serial.print(" total:"); Serial.println(total);
 #endif
 
+  if (fabs(total - 1.0) > MOVE_THRESHOLD) {
+    lastMove = millis();
+  }
+
   if (total < SHAKE_THRESHOLD) {
     return false;
   }
@@ -45,4 +56,18 @@ bool shakeDetected() {
   bool newShake = now - lastPeak >= SHAKE_QUIET_MS;
   lastPeak = now;
   return newShake;
+}
+
+bool shakeMoving() {
+  return millis() - lastMove < MOVE_QUIET_MS;
+}
+
+void shakeSound() {
+  // S2.4: terninger der rasler – korte klik i tilfældig tone (ca. ¼ sek.)
+  for (int i = 0; i < 6; i++) {
+    carrier.Buzzer.sound(random(700, 1800));
+    delay(15);
+    carrier.Buzzer.noSound();
+    delay(random(15, 40));
+  }
 }
