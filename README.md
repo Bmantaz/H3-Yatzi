@@ -25,7 +25,7 @@ docs/                       GDD, DoD, protokol
 
 Backendens terningelogik, alle 15 pointfelter, bonus, pointtavle, de seks spil-endpoints og beskedhåndteringen af `ROLL`/`HOLD` er implementeret med automatiske tests. Ét feltvalg efter 1–3 kast afslutter turen. Handleren og HTTP-API'et deler sessionens lås; svarene kopierer også pointfelter og mulige point. Se [API-kontrakten](docs/api.md), [pointreglerne](docs/scoring.md) og [Oplà-beskedhåndteringen](docs/opla-handler.md).
 
-Løsningen til #40 er gennemgået og lokalt verificeret med 612 beståede tests og Release-build med 0 fejl og 0 advarsler. Aflevering og CI dokumenteres i PR'en til #40; merge til `main` udestår. Frontenden bruger fortsat mock-data; visning og valg af pointfelter følger i #41. `/ws/opla`, lobby og parring, browser-bro og turskifte følger i de næste sprintopgaver. Den samlede fysiske forbindelse mellem Oplà, browser, server og frontend er endnu ikke verificeret.
+Løsningen til #40 er gennemgået og lokalt verificeret med 612 beståede tests og Release-build med 0 fejl og 0 advarsler. Afleveringsstatus og CI dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76). Frontenden bruger fortsat mock-data; visning og valg af pointfelter følger i #41. `/ws/opla`, lobby og parring, browser-bro og turskifte følger i de næste sprintopgaver. Den samlede fysiske forbindelse mellem Oplà, browser, server og frontend er endnu ikke verificeret.
 
 ## Kom i gang
 

@@ -2,7 +2,7 @@
 
 Denne kontrakt beskriver de seks HTTP-kald til oprettelse, kast, hold/slip og pointvalg. Opgave #40 udvider svarene fra #33 med spillerens pointtavle, mulige point og turstatus. Pointreglerne er beskrevet i [scoring.md](scoring.md).
 
-**Status ved slutkontrollen af #40:** Alle seks endpoints er implementeret, gennemgået og automatisk HTTP-testet. Release-buildet bestod med 0 fejl og 0 advarsler, og alle 612 tests bestod. Aflevering og CI dokumenteres i PR'en til #40; merge til `main` udestår. Frontenden bruger fortsat mock-data; den grafiske pointtavle følger i #41. Næste tur og multiplayer følger i #44.
+**Status ved slutkontrollen af #40:** Alle seks endpoints er implementeret, gennemgået og automatisk HTTP-testet. Release-buildet bestod med 0 fejl og 0 advarsler, og alle 612 tests bestod. Afleveringsstatus og CI dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76). Frontenden bruger fortsat mock-data; den grafiske pointtavle følger i #41. Næste tur og multiplayer følger i #44.
 
 ## Ansvar og dataflow
 
@@ -565,4 +565,4 @@ Eksemplet ovenfor og fejltabellen er dækket af [HTTP-testene](../backend/Yatzi.
 
 Kør hele testsuiten fra repositoryets rod med `dotnet test H3Yatzi.sln --configuration Release`.
 
-Kontrakten er klar til deling med Frederik, men hans accept og den faktiske tilkobling er endnu ikke verificeret. Backendens automatiske tests omfatter ikke fysisk hardware eller et helt spil med flere ture. Slutkontrollen afleveres til review i en åben PR; #40 forbliver igangværende, indtil den senere merge og CI er verificeret.
+Kontrakten er klar til deling med Frederik, men hans accept og den faktiske tilkobling er endnu ikke verificeret. Backendens automatiske tests omfatter ikke fysisk hardware eller et helt spil med flere ture. Afleveringsstatus og CI dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76).
