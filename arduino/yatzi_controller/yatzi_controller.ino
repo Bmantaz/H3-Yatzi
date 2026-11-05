@@ -131,8 +131,7 @@ void loop() {
   }
   if (die > 0) {
     // Tryk på touch-knap n = hold/slip terning n. Serveren skifter selv tilstand (docs/protocol.md).
-    Serial.print("HOLD ");
-    Serial.println(die);
+    linkSend("HOLD " + String(die));
     diceToggleHeld(die);  // S1.5: gem status og tænd/sluk grøn LED (erstattes af serverens STATE i S2.3)
   }
 }
