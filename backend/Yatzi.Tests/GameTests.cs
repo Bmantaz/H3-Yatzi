@@ -3,7 +3,8 @@ using Yatzi.Core;
 namespace Yatzi.Tests;
 
 /// <summary>
-/// Kontrollerer starttilstanden, kast, hold/slip, slaggrænsen og beskyttelsen af spillets data.
+/// Kontrollerer kast, hold/slip, pointtavle, feltvalg og turafslutning med faste kast.
+/// Sikrer også, at læsning og afvisninger bevarer spillets data og tilfældighedskilde.
 /// </summary>
 public class GameTests
 {
@@ -335,6 +336,445 @@ public class GameTests
         Assert.Equal(12, random.CallCount);
     }
 
+    [Fact]
+    public void Game_StartsWithEmptyScorecardAndOpenTurn()
+    {
+        var random = new SequenceRandom();
+        var game = new Game(random);
+
+        Assert.Equal(15, game.Scores.Count);
+        Assert.Equal(Enum.GetValues<ScoreCategory>(), game.Scores.Keys.OrderBy(category => category));
+        Assert.All(game.Scores.Values, score => Assert.Null(score));
+        Assert.Equal(0, game.UpperSum);
+        Assert.Equal(0, game.Bonus);
+        Assert.Equal(0, game.Total);
+        Assert.False(game.TurnCompleted);
+        Assert.Empty(game.PossibleScores);
+        Assert.Equal(0, random.CallCount);
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    public void FieldChoice_AfterAllowedRollsStoresResultAndPreservesDiceState(int rollCount, bool strike)
+    {
+        var game = CreateRolledGame(rollCount, out var random);
+        var expected = CaptureState(game, random);
+        var scoresView = game.Scores;
+
+        if (strike)
+        {
+            game.Strike(ScoreCategory.Fives);
+        }
+        else
+        {
+            game.Score(ScoreCategory.Fives);
+        }
+
+        int expectedScore = strike ? 0 : 15;
+        Assert.Equal(expectedScore, scoresView[ScoreCategory.Fives]);
+        Assert.All(game.Scores.Where(entry => entry.Key != ScoreCategory.Fives), entry => Assert.Null(entry.Value));
+        Assert.Equal(expectedScore, game.UpperSum);
+        Assert.Equal(0, game.Bonus);
+        Assert.Equal(expectedScore, game.Total);
+        Assert.True(game.TurnCompleted);
+        Assert.Empty(game.PossibleScores);
+        AssertDiceStateUnchanged(game, random, expected);
+    }
+
+    [Theory]
+    [InlineData(ScoreCategory.Ones, 0)]
+    [InlineData(ScoreCategory.Twos, 4)]
+    [InlineData(ScoreCategory.Threes, 0)]
+    [InlineData(ScoreCategory.Fours, 0)]
+    [InlineData(ScoreCategory.Fives, 15)]
+    [InlineData(ScoreCategory.Sixes, 0)]
+    [InlineData(ScoreCategory.OnePair, 10)]
+    [InlineData(ScoreCategory.TwoPairs, 14)]
+    [InlineData(ScoreCategory.ThreeOfAKind, 15)]
+    [InlineData(ScoreCategory.FourOfAKind, 0)]
+    [InlineData(ScoreCategory.SmallStraight, 0)]
+    [InlineData(ScoreCategory.LargeStraight, 0)]
+    [InlineData(ScoreCategory.FullHouse, 19)]
+    [InlineData(ScoreCategory.Chance, 19)]
+    [InlineData(ScoreCategory.Yatzy, 0)]
+    public void Score_ReferenceRollStoresExpectedPointsAndCompletesTurn(ScoreCategory category, int expectedScore)
+    {
+        var game = CreateRolledGame(1, out var random);
+        var expected = CaptureState(game, random);
+
+        game.Score(category);
+
+        Assert.Equal(expectedScore, game.Scores[category]);
+        Assert.All(game.Scores.Where(entry => entry.Key != category), entry => Assert.Null(entry.Value));
+        Assert.Equal((int)category <= 6 ? expectedScore : 0, game.UpperSum);
+        Assert.Equal(0, game.Bonus);
+        Assert.Equal(expectedScore, game.Total);
+        Assert.True(game.TurnCompleted);
+        Assert.Empty(game.PossibleScores);
+        AssertDiceStateUnchanged(game, random, expected);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void FieldChoice_BeforeFirstRollRejectsAndLeavesTurnUsable(bool strike)
+    {
+        var random = new SequenceRandom(5, 5, 5, 2, 2);
+        var game = new Game(random);
+        var expected = CaptureState(game, random);
+        Action chooseField = strike
+            ? () => game.Strike(ScoreCategory.Chance)
+            : () => game.Score(ScoreCategory.Chance);
+
+        var exception = Assert.Throws<InvalidOperationException>(chooseField);
+
+        Assert.Equal("Kast terningerne, før du vælger et pointfelt.", exception.Message);
+        AssertStateUnchanged(game, random, expected);
+
+        game.Roll();
+        chooseField();
+
+        Assert.Equal(strike ? 0 : 19, game.Scores[ScoreCategory.Chance]);
+        Assert.True(game.TurnCompleted);
+        Assert.Equal(5, random.CallCount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(16)]
+    [InlineData(int.MinValue)]
+    [InlineData(int.MaxValue)]
+    public void FieldChoice_UnknownCategoryAtAnyTurnStagePreservesState(int value)
+    {
+        for (int stage = 0; stage < 3; stage++)
+        {
+            var random = new SequenceRandom(5, 5, 5, 2, 2);
+            var game = new Game(random);
+            if (stage > 0)
+            {
+                game.Roll();
+                game.ToggleHold(2);
+            }
+            if (stage == 2)
+            {
+                game.Score(ScoreCategory.Fives);
+            }
+            var expected = CaptureState(game, random);
+
+            foreach (var action in new Action<ScoreCategory>[] { game.Score, game.Strike })
+            {
+                var exception = Assert.Throws<ArgumentOutOfRangeException>(() => action((ScoreCategory)value));
+
+                Assert.Equal("category", exception.ParamName);
+                Assert.Equal((ScoreCategory)value, exception.ActualValue);
+                Assert.StartsWith("Pointfeltet er ukendt.", exception.Message);
+                AssertStateUnchanged(game, random, expected);
+            }
+
+            if (stage < 2)
+            {
+                if (stage == 0)
+                {
+                    game.Roll();
+                }
+                game.Score(ScoreCategory.Chance);
+
+                Assert.Equal(19, game.Scores[ScoreCategory.Chance]);
+                Assert.True(game.TurnCompleted);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    public void CompletedTurn_AllValidActionsRejectWithoutChangingState(int rollCount, bool strike)
+    {
+        var game = CreateRolledGame(rollCount, out var random);
+        if (strike)
+        {
+            game.Strike(ScoreCategory.Fives);
+        }
+        else
+        {
+            game.Score(ScoreCategory.Fives);
+        }
+        var expected = CaptureState(game, random);
+        Action[] actions =
+        {
+            game.Roll,
+            () => game.ToggleHold(0),
+            () => game.ToggleHold(2),
+            () => game.ToggleHold(4),
+            () => game.Score(ScoreCategory.Fives),
+            () => game.Score(ScoreCategory.Chance),
+            () => game.Strike(ScoreCategory.Fives),
+            () => game.Strike(ScoreCategory.Chance)
+        };
+
+        foreach (var action in actions)
+        {
+            var exception = Assert.Throws<InvalidOperationException>(action);
+
+            Assert.Equal("Turen er afsluttet. Der kan ikke udføres flere handlinger i denne tur.", exception.Message);
+            AssertStateUnchanged(game, random, expected);
+        }
+    }
+
+    [Fact]
+    public void Score_ZeroPointsStillPreventsAnotherFieldChoice()
+    {
+        var game = CreateRolledGame(1, out var random);
+        game.Score(ScoreCategory.Yatzy);
+        var expected = CaptureState(game, random);
+
+        Assert.Equal(0, game.Scores[ScoreCategory.Yatzy]);
+        Assert.True(game.TurnCompleted);
+        var exception = Assert.Throws<InvalidOperationException>(() => game.Score(ScoreCategory.Chance));
+
+        Assert.Equal("Turen er afsluttet. Der kan ikke udføres flere handlinger i denne tur.", exception.Message);
+        AssertStateUnchanged(game, random, expected);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(5)]
+    [InlineData(int.MinValue)]
+    [InlineData(int.MaxValue)]
+    public void ToggleHold_InvalidIndexAfterCompletionKeepsInputError(int index)
+    {
+        var game = CreateRolledGame(3, out var random);
+        game.Score(ScoreCategory.FullHouse);
+        var expected = CaptureState(game, random);
+
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() => game.ToggleHold(index));
+
+        Assert.Equal("index", exception.ParamName);
+        Assert.Equal(index, exception.ActualValue);
+        AssertStateUnchanged(game, random, expected);
+    }
+
+    [Fact]
+    public void PossibleScores_ReferenceRollIncludesAllFieldsAndDoesNotChangeState()
+    {
+        var game = CreateRolledGame(1, out var random);
+        var expected = CaptureState(game, random);
+        var expectedScores = new Dictionary<ScoreCategory, int>
+        {
+            [ScoreCategory.Ones] = 0,
+            [ScoreCategory.Twos] = 4,
+            [ScoreCategory.Threes] = 0,
+            [ScoreCategory.Fours] = 0,
+            [ScoreCategory.Fives] = 15,
+            [ScoreCategory.Sixes] = 0,
+            [ScoreCategory.OnePair] = 10,
+            [ScoreCategory.TwoPairs] = 14,
+            [ScoreCategory.ThreeOfAKind] = 15,
+            [ScoreCategory.FourOfAKind] = 0,
+            [ScoreCategory.SmallStraight] = 0,
+            [ScoreCategory.LargeStraight] = 0,
+            [ScoreCategory.FullHouse] = 19,
+            [ScoreCategory.Chance] = 19,
+            [ScoreCategory.Yatzy] = 0
+        };
+
+        for (int read = 0; read < 3; read++)
+        {
+            Assert.Equal(expectedScores.OrderBy(entry => entry.Key), game.PossibleScores.OrderBy(entry => entry.Key));
+            AssertStateUnchanged(game, random, expected);
+        }
+
+        game.ToggleHold(2);
+
+        Assert.Equal(expectedScores.OrderBy(entry => entry.Key), game.PossibleScores.OrderBy(entry => entry.Key));
+        Assert.Equal(5, random.CallCount);
+    }
+
+    [Fact]
+    public void PossibleScores_NewRollsAndCompletionPreserveEarlierSnapshots()
+    {
+        var random = new SequenceRandom(
+            5, 5, 5, 2, 2,
+            1, 2, 3, 4, 5,
+            2, 3, 4, 5, 6);
+        var game = new Game(random);
+        var beforeRoll = game.PossibleScores;
+        game.Roll();
+        var firstRoll = game.PossibleScores;
+        var expectedFirst = firstRoll.ToDictionary(entry => entry.Key, entry => entry.Value);
+        game.Roll();
+        var secondRoll = game.PossibleScores;
+        var expectedSecond = secondRoll.ToDictionary(entry => entry.Key, entry => entry.Value);
+        game.Roll();
+        var thirdRoll = game.PossibleScores;
+        var expectedThird = thirdRoll.ToDictionary(entry => entry.Key, entry => entry.Value);
+
+        Assert.Empty(beforeRoll);
+        Assert.Equal(19, firstRoll[ScoreCategory.Chance]);
+        Assert.Equal(19, firstRoll[ScoreCategory.FullHouse]);
+        Assert.Equal(15, secondRoll[ScoreCategory.SmallStraight]);
+        Assert.Equal(0, secondRoll[ScoreCategory.LargeStraight]);
+        Assert.Equal(15, secondRoll[ScoreCategory.Chance]);
+        Assert.Equal(0, thirdRoll[ScoreCategory.SmallStraight]);
+        Assert.Equal(20, thirdRoll[ScoreCategory.LargeStraight]);
+        Assert.Equal(20, thirdRoll[ScoreCategory.Chance]);
+        Assert.All(game.Scores.Values, score => Assert.Null(score));
+        Assert.False(game.TurnCompleted);
+        Assert.Equal(15, random.CallCount);
+
+        game.Score(ScoreCategory.Chance);
+
+        Assert.Empty(game.PossibleScores);
+        Assert.Equal(20, game.Total);
+        Assert.Equal(expectedFirst.OrderBy(entry => entry.Key), firstRoll.OrderBy(entry => entry.Key));
+        Assert.Equal(expectedSecond.OrderBy(entry => entry.Key), secondRoll.OrderBy(entry => entry.Key));
+        Assert.Equal(expectedThird.OrderBy(entry => entry.Key), thirdRoll.OrderBy(entry => entry.Key));
+        Assert.Equal(15, random.CallCount);
+    }
+
+    [Fact]
+    public void Scores_LiveViewRejectsExternalChanges()
+    {
+        var game = CreateRolledGame(1, out var random);
+        var scoresView = game.Scores;
+        var mutable = Assert.IsAssignableFrom<IDictionary<ScoreCategory, int?>>(scoresView);
+        game.Score(ScoreCategory.Fives);
+        var expected = CaptureState(game, random);
+
+        Assert.Equal(15, scoresView[ScoreCategory.Fives]);
+        Assert.Throws<NotSupportedException>(() => mutable[ScoreCategory.Fives] = 30);
+        Assert.Throws<NotSupportedException>(() => mutable.Add(ScoreCategory.Chance, 30));
+        Assert.Throws<NotSupportedException>(() => mutable.Remove(ScoreCategory.Fives));
+        Assert.Throws<NotSupportedException>(() => mutable.Clear());
+        AssertStateUnchanged(game, random, expected);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void PossibleScores_RejectsExternalChangesAtEveryTurnStage(int stage)
+    {
+        var random = new SequenceRandom(5, 5, 5, 2, 2);
+        var game = new Game(random);
+        if (stage > 0)
+        {
+            game.Roll();
+        }
+        if (stage == 2)
+        {
+            game.Strike(ScoreCategory.Fives);
+        }
+        var expected = CaptureState(game, random);
+        var mutable = Assert.IsAssignableFrom<IDictionary<ScoreCategory, int>>(game.PossibleScores);
+
+        Assert.Throws<NotSupportedException>(() => mutable[ScoreCategory.Fives] = 30);
+        Assert.Throws<NotSupportedException>(() => mutable.Add(ScoreCategory.Chance, 30));
+        Assert.Throws<NotSupportedException>(() => mutable.Remove(ScoreCategory.Fives));
+        Assert.Throws<NotSupportedException>(() => mutable.Clear());
+        AssertStateUnchanged(game, random, expected);
+    }
+
+    [Fact]
+    public void FieldChoice_SeparateGamesKeepIndependentScorecards()
+    {
+        var firstGame = CreateRolledGame(1, out var firstRandom);
+        var secondGame = CreateRolledGame(1, out _);
+        firstGame.Score(ScoreCategory.Fives);
+        var expectedFirst = CaptureState(firstGame, firstRandom);
+
+        secondGame.Strike(ScoreCategory.Chance);
+
+        AssertStateUnchanged(firstGame, firstRandom, expectedFirst);
+        Assert.Equal(15, firstGame.Scores[ScoreCategory.Fives]);
+        Assert.Null(firstGame.Scores[ScoreCategory.Chance]);
+        Assert.Null(secondGame.Scores[ScoreCategory.Fives]);
+        Assert.Equal(0, secondGame.Scores[ScoreCategory.Chance]);
+        Assert.Equal(0, secondGame.Total);
+        Assert.True(secondGame.TurnCompleted);
+
+        var freshGame = new Game();
+
+        Assert.All(freshGame.Scores.Values, score => Assert.Null(score));
+        Assert.False(freshGame.TurnCompleted);
+        Assert.Equal(0, freshGame.Total);
+        Assert.Empty(freshGame.PossibleScores);
+    }
+
+    /// <summary>
+    /// Opretter referencekastet 5,5,5,2,2 med en holdt terning efter 1–3 kast.
+    /// Faste værdier for de øvrige terninger gør turens slutresultat ens i alle tre tilfælde.
+    /// </summary>
+    private static Game CreateRolledGame(int rollCount, out SequenceRandom random)
+    {
+        random = new SequenceRandom(5, 5, 5, 2, 2, 5, 5, 2, 2, 5, 5, 2, 2);
+        var game = new Game(random);
+        game.Roll();
+        game.ToggleHold(2);
+        for (int roll = 1; roll < rollCount; roll++)
+        {
+            game.Roll();
+        }
+
+        return game;
+    }
+
+    // Kopier alle observerbare værdier, så tests også opdager utilsigtede sideeffekter
+    // i andre dele af spillet end den handling, der forventes at blive afvist.
+    private static GameSnapshot CaptureState(Game game, SequenceRandom random) => new(
+        game.Dice.ToArray(),
+        game.Held.ToArray(),
+        game.RollsUsed,
+        game.Scores.ToDictionary(entry => entry.Key, entry => entry.Value),
+        game.UpperSum,
+        game.Bonus,
+        game.Total,
+        game.TurnCompleted,
+        game.PossibleScores.ToDictionary(entry => entry.Key, entry => entry.Value),
+        random.CallCount);
+
+    private static void AssertDiceStateUnchanged(Game game, SequenceRandom random, GameSnapshot expected)
+    {
+        Assert.Equal(expected.Dice, game.Dice);
+        Assert.Equal(expected.Held, game.Held);
+        Assert.Equal(expected.RollsUsed, game.RollsUsed);
+        Assert.Equal(expected.RandomCalls, random.CallCount);
+    }
+
+    private static void AssertStateUnchanged(Game game, SequenceRandom random, GameSnapshot expected)
+    {
+        AssertDiceStateUnchanged(game, random, expected);
+        Assert.Equal(expected.Scores.OrderBy(entry => entry.Key), game.Scores.OrderBy(entry => entry.Key));
+        Assert.Equal(expected.UpperSum, game.UpperSum);
+        Assert.Equal(expected.Bonus, game.Bonus);
+        Assert.Equal(expected.Total, game.Total);
+        Assert.Equal(expected.TurnCompleted, game.TurnCompleted);
+        Assert.Equal(expected.PossibleScores.OrderBy(entry => entry.Key), game.PossibleScores.OrderBy(entry => entry.Key));
+        Assert.Equal(expected.RandomCalls, random.CallCount);
+    }
+
+    private sealed record GameSnapshot(
+        int[] Dice,
+        bool[] Held,
+        int RollsUsed,
+        Dictionary<ScoreCategory, int?> Scores,
+        int UpperSum,
+        int Bonus,
+        int Total,
+        bool TurnCompleted,
+        Dictionary<ScoreCategory, int> PossibleScores,
+        int RandomCalls);
+
     /// <summary>
     /// Leverer forudbestemte værdier, så kast kan testes uden tilfældige testresultater.
     /// </summary>
@@ -365,5 +805,5 @@ public class GameTests
         }
     }
 
-    // TODO: tests af pointberegning og spillets afslutning.
+    // TODO: tests af næste tur, flere spillere og spillets afslutning i opgave #44.
 }

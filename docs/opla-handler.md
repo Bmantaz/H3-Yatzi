@@ -10,7 +10,7 @@ Handleren er implementeret med automatiske tests uden fysisk hardware. HTTP-API 
 |---|---|
 | [OplaMessageHandler](../backend/Yatzi.Api/OplaMessageHandler.cs) | Genkender `ROLL`, `HOLD n` og debug, logger afvisninger og danner `STATE`-svar. |
 | [GameSession](../backend/Yatzi.Api/GameSession.cs) | Ejer serverens ene spil i hukommelsen. Udfører handlinger og kopierer tilstanden under samme lås. |
-| [Yatzi.Core.Game](../backend/Yatzi.Core/Game.cs) | Håndhæver terningereglerne: kast, hold/slip og højst tre slag. |
+| [Yatzi.Core.Game](../backend/Yatzi.Core/Game.cs) | Håndhæver kast, hold/slip, pointvalg og låsning af turen efter ét feltvalg. |
 | Det kommende transportlag i #63 | Modtager komplette linjer gennem `/ws/opla` og sender svar til den samme forbindelse. |
 
 ```mermaid
@@ -53,7 +53,7 @@ Formatet følger den aftalte [kommunikationsprotokol](protocol.md). Kommandoer s
 
 `STATE 2 01010` betyder to brugte slag og terning 2 og 4 holdt. De fem tegn følger terning 1–5: `1` er holdt, og `0` er sluppet. Terningeværdierne findes i HTTP-API'ets JSON og sendes ikke i `STATE`.
 
-Kast er tilladt indtil og med tredje slag. Hold/slip er kun tilladt efter første eller andet kast og ændrer hverken terningeværdier eller brugte slag. Et nyt tryk på samme terning slipper den igen.
+Kast er tilladt i en åben tur indtil og med tredje slag. Hold/slip er kun tilladt i en åben tur efter første eller andet kast og ændrer hverken terningeværdier eller brugte slag. Et nyt tryk på samme terning slipper den igen.
 
 ## Sammenhængende eksempel
 
@@ -71,6 +71,14 @@ Opret først et spil med `POST /api/game/new` og JSON-bodyen `{"name":"Andreas"}
 | `HOLD 4` | Intet svar | Afvises, fordi hold/slip er lukket efter tredje slag. |
 
 `GET /api/game` viser tilstanden efter hver handling. Afviste handlinger bevarer den eksisterende tilstand. En sluppet terning kan godt få samme værdi ved næste kast; tilfældige værdier behøver ikke ændre sig.
+
+## Pointvalg gennem HTTP
+
+`POST /api/game/score/{category}` og `/api/game/strike/{category}` bruger samme session som handleren. Efter første, andet eller tredje kast afslutter ét accepteret feltvalg turen og bevarer terninger, hold og brugte slag. Flere `ROLL`- og `HOLD n`-linjer afvises med én Warning pr. linje og en tom svarliste. Der sendes intet `STATE` ved afvisning.
+
+Et nyt spil gennem `/api/game/new` nulstiller også pointtavle og turstatus. Den eksisterende handler bruger derefter automatisk det nye spil. Se [API-kontrakten](api.md) og [pointreglerne](scoring.md).
+
+`STATE r hhhhh` er uændret. Pointvalg tilføjer ingen Oplà-kommandoer eller `WAIT`/`END`; næste tur og disse beskeder følger i #44.
 
 ## Afvisninger og logging
 
@@ -113,6 +121,6 @@ dotnet test H3Yatzi.sln --configuration Release --filter FullyQualifiedName~Opla
 
 [Handler-testene](../backend/Yatzi.Tests/OplaMessageHandlerTests.cs) kontrollerer kommandoer, svar, grænser, debug og logging direkte mod en session. [Integrationstestene](../backend/Yatzi.Tests/OplaMessageHandlerIntegrationTests.cs) henter handleren fra applikationens rigtige servicecontainer og kombinerer den med HTTP gennem en testserver i hukommelsen. Hver testcase har sin egen testvært og session.
 
-Integrationstestene dækker en hel tur, handlinger gennem begge indgange, nyt spil med eksisterende handler samt samtidige kast og hold/slip. Samtidige handlinger frigives fra en fælles startport; resultaterne må komme i vilkårlig rækkefølge.
+Integrationstestene dækker en hel tur, handlinger gennem begge indgange, nyt spil med eksisterende handler samt samtidige kast og hold/slip. Step 7 af #40 tilføjer HTTP-feltvalg efter handlerkast, afvisning efter placering og strygning, genbrug af handleren efter nyt spil samt HTTP-feltvalg samtidig med handlerens `ROLL` og `HOLD`. Handlerens direkte tests kontrollerer én Warning pr. afvist linje efter begge slags feltvalg. Samtidige handlinger frigives fra en fælles startport; resultaterne må komme i vilkårlig rækkefølge.
 
-Automatiske tests verificerer backendens samspil uden en åben netværksport eller fysisk hardware. Den samlede fysiske forbindelse og integrationstesten i #43 er fortsat udestående. Aflevering af #36 kræver derudover en PR med `Closes #36`, merge til `main` og grøn CI.
+Ved slutkontrollen af #40 bestod hele løsningen med 612 tests og et Release-build med 0 fejl og 0 advarsler. Automatiske tests verificerer backendens samspil uden en åben netværksport eller fysisk hardware. Den samlede fysiske forbindelse og integrationstesten i #43 er fortsat udestående. Aflevering og CI dokumenteres i PR'en til #40; merge til `main` udestår.

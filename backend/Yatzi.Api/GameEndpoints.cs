@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Yatzi.Core;
 
 namespace Yatzi.Api;
 
@@ -13,9 +14,10 @@ public static class GameEndpoints
     private const string InvalidNameLengthMessage = "Navnet skal indeholde mellem 1 og 20 tegn.";
     private const string MissingGameMessage = "Der er ikke oprettet et spil. Start et nyt spil først.";
     private const string InvalidDieNumberMessage = "Terningens nummer skal være mellem 1 og 5.";
+    private const string InvalidCategoryMessage = "Pointfeltet er ukendt. Brug et af de 15 felt-id'er.";
 
     /// <summary>
-    /// Tilføjer oprettelse, hentning, kast og hold/slip under /api/game. GameSession skal være
+    /// Tilføjer oprettelse, hentning, kast, hold/slip og feltvalg under /api/game. GameSession skal være
     /// registreret i dependency injection, før applikationen bygges.
     /// </summary>
     public static IEndpointRouteBuilder MapGameApi(this IEndpointRouteBuilder endpoints)
@@ -25,6 +27,8 @@ public static class GameEndpoints
         group.MapGet("", GetGame);
         group.MapPost("/roll", RollGame);
         group.MapPost("/hold/{n}", ToggleHold);
+        group.MapPost("/score/{category}", ScoreGame);
+        group.MapPost("/strike/{category}", StrikeGame);
         return endpoints;
     }
 
@@ -87,7 +91,7 @@ public static class GameEndpoints
 
     /// <summary>
     /// Kaster uden request-body og returnerer 200 med tilstanden eller 404 uden spil.
-    /// Kernens afvisning efter tredje slag oversættes til 409 med dens danske besked.
+    /// Kernens afvisning efter tredje slag eller afsluttet tur bliver 409 med dens danske besked.
     /// </summary>
     private static IResult RollGame(GameSession session)
     {
@@ -127,6 +131,45 @@ public static class GameEndpoints
         {
             // Kun kommunikationslaget kender numrene 1–5; kernen bruger indeks 0–4.
             state = session.ToggleHold(number - 1);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Results.Conflict(new ApiErrorResponse(exception.Message));
+        }
+
+        return state is null
+            ? Results.NotFound(new ApiErrorResponse(MissingGameMessage))
+            : Results.Ok(state);
+    }
+
+    /// <summary>
+    /// Registrerer point fra serverens terninger uden request-body. Klienten vælger kun feltet.
+    /// </summary>
+    private static IResult ScoreGame(string category, GameSession session) =>
+        ChooseField(category, session.Score);
+
+    /// <summary>
+    /// Stryger et felt uden request-body. Kernen kontrollerer kast og tur og gemmer altid 0.
+    /// </summary>
+    private static IResult StrikeGame(string category, GameSession session) =>
+        ChooseField(category, session.Strike);
+
+    /// <summary>
+    /// Fælles HTTP-grænse for feltvalg: præcist tekst-id før spilopslag, derefter
+    /// 200 med hele tilstanden, 404 uden spil eller 409 ved kernens regelafvisning.
+    /// Andre fejltyper videresendes til ASP.NET Core.
+    /// </summary>
+    private static IResult ChooseField(string category, Func<ScoreCategory, GameStateResponse?> action)
+    {
+        if (!ScoreCategoryIds.TryParse(category, out var scoreCategory))
+        {
+            return Results.BadRequest(new ApiErrorResponse(InvalidCategoryMessage));
+        }
+
+        GameStateResponse? state;
+        try
+        {
+            state = action(scoreCategory);
         }
         catch (InvalidOperationException exception)
         {

@@ -7,7 +7,8 @@ Mellemprojekt: et digitalt Yatzy-spil, hvor **Arduino Oplà** (MKR WiFi 1010) br
 - 📄 [Game Design Document](docs/GDD.md)
 - ✅ [Definition of Done & Nice to Have](docs/DoD.md)
 - 🔌 [Protokol Oplà ⇄ server](docs/protocol.md) – USB + WiFi, lobby og parring
-- 🌐 [HTTP API-kontrakt](docs/api.md) – requests, spiltilstand og fejl for opgave #33
+- 🌐 [HTTP API-kontrakt](docs/api.md) – requests, spiltilstand og fejl for #33 og #40
+- 🧮 [Pointregler og point-API](docs/scoring.md) – alle 15 felter, bonus, strygning og turafslutning
 - 🎲 [Oplà-beskedhåndtering](docs/opla-handler.md) – ROLL/HOLD, STATE-svar, fælles spilsession og tests
 
 ## Struktur
@@ -22,9 +23,9 @@ docs/                       GDD, DoD, protokol
 .github/                    Actions, issue-skabeloner, issue-seed-data
 ```
 
-Backendens terningelogik, de fire spil-endpoints og beskedhåndteringen af `ROLL`/`HOLD` er implementeret med automatiske tests. Handleren og HTTP-API'et deler samme spilsession; integrationstestene kontrollerer en hel tur, nyt spil og samtidige handlinger gennem begge indgange. Se [API-kontrakten](docs/api.md) og [Oplà-beskedhåndteringen](docs/opla-handler.md) for brug og dataflow.
+Backendens terningelogik, alle 15 pointfelter, bonus, pointtavle, de seks spil-endpoints og beskedhåndteringen af `ROLL`/`HOLD` er implementeret med automatiske tests. Ét feltvalg efter 1–3 kast afslutter turen. Handleren og HTTP-API'et deler sessionens lås; svarene kopierer også pointfelter og mulige point. Se [API-kontrakten](docs/api.md), [pointreglerne](docs/scoring.md) og [Oplà-beskedhåndteringen](docs/opla-handler.md).
 
-Frontenden bruger fortsat mock-data. `/ws/opla`, lobby og parring, browser-bro, pointberegning og turskifte følger i de næste sprintopgaver. Den samlede fysiske forbindelse mellem Oplà, browser, server og frontend er endnu ikke verificeret.
+Løsningen til #40 er gennemgået og lokalt verificeret med 612 beståede tests og Release-build med 0 fejl og 0 advarsler. Aflevering og CI dokumenteres i PR'en til #40; merge til `main` udestår. Frontenden bruger fortsat mock-data; visning og valg af pointfelter følger i #41. `/ws/opla`, lobby og parring, browser-bro og turskifte følger i de næste sprintopgaver. Den samlede fysiske forbindelse mellem Oplà, browser, server og frontend er endnu ikke verificeret.
 
 ## Kom i gang
 
