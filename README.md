@@ -8,6 +8,7 @@ Mellemprojekt: et digitalt Yatzy-spil, hvor **Arduino Oplà** (MKR WiFi 1010) br
 - ✅ [Definition of Done & Nice to Have](docs/DoD.md)
 - 🔌 [Protokol Oplà ⇄ server](docs/protocol.md) – USB + WiFi, lobby og parring
 - 🌐 [HTTP API-kontrakt](docs/api.md) – requests, spiltilstand og fejl for opgave #33
+- 🎲 [Oplà-beskedhåndtering](docs/opla-handler.md) – ROLL/HOLD, STATE-svar, fælles spilsession og tests
 
 ## Struktur
 
@@ -21,7 +22,9 @@ docs/                       GDD, DoD, protokol
 .github/                    Actions, issue-skabeloner, issue-seed-data
 ```
 
-Backendens terningelogik og de fire spil-endpoints er implementeret og testet. Frontenden bruger fortsat mock-data. Lobby, pointberegning, turskifte og den samlede Oplà-integration følger i de næste sprintopgaver. Se [API-kontrakten](docs/api.md) for requests, spiltilstand og fejl.
+Backendens terningelogik, de fire spil-endpoints og beskedhåndteringen af `ROLL`/`HOLD` er implementeret med automatiske tests. Handleren og HTTP-API'et deler samme spilsession; integrationstestene kontrollerer en hel tur, nyt spil og samtidige handlinger gennem begge indgange. Se [API-kontrakten](docs/api.md) og [Oplà-beskedhåndteringen](docs/opla-handler.md) for brug og dataflow.
+
+Frontenden bruger fortsat mock-data. `/ws/opla`, lobby og parring, browser-bro, pointberegning og turskifte følger i de næste sprintopgaver. Den samlede fysiske forbindelse mellem Oplà, browser, server og frontend er endnu ikke verificeret.
 
 ## Kom i gang
 
