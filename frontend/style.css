@@ -241,3 +241,19 @@ main {
     height: 9px;
   }
 }
+
+/* Browser-bro (S2.11) */
+.opla-connect {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bg);
+}
+
+.opla-status {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+}
+
+.opla-status.error {
+  color: var(--red);
+}

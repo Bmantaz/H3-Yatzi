@@ -20,6 +20,12 @@
         <input id="player-name" name="name" type="text" maxlength="20" autocomplete="nickname" required>
         <button type="submit" class="btn btn-primary">Start spil</button>
       </form>
+
+      <!-- Browser-bro (S2.11): Oplà i USB. Flyttes ind i lobbyen i S2.10 – koden kommer som hændelsen opla:pair. -->
+      <div class="opla-connect">
+        <button id="opla-connect-btn" type="button" class="btn">Forbind Oplà (USB)</button>
+        <p id="opla-status" class="opla-status" role="status" aria-live="polite"></p>
+      </div>
     </section>
 
     <!-- Spilskærm: terninger og "Slag x/3" (S1.8). Pointtavlen kommer i S2.6. -->
@@ -39,6 +45,7 @@
     </section>
   </main>
 
+  <script src="bridge.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
