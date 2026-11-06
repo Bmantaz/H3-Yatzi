@@ -32,7 +32,12 @@ static void draw(const String& title, const String& big, uint16_t color) {
 
 void screenSetup() {
   carrier.display.setTextWrap(false);
+  showConnecting();
+}
+
+void showConnecting() {
   draw("Yatzi", "Forbinder...", ST77XX_CYAN);
+  linkDebug("skærm: Forbinder...");
 }
 
 void showPair(const String& code) {

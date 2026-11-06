@@ -107,6 +107,12 @@ void loop() {
     serverAnswered = false;
     readySentAt = millis() - READY_RETRY_MS;
   }
+  // Forbindelsen er væk (fx fanen lukket eller kablet trukket): vis ikke en gammel tur.
+  if (!connected && wasConnected) {
+    rollsUsed = -1;
+    showHeldDice(NO_DICE_HELD);
+    showConnecting();
+  }
   wasConnected = connected;
 
   if (!serverAnswered && millis() - readySentAt >= READY_RETRY_MS) {
@@ -125,7 +131,7 @@ void loop() {
     }
   }
 
-    int die = diceTouched();  // 1–5, eller 0 hvis ingen knap er trykket
+  int die = diceTouched();  // 1–5, eller 0 hvis ingen knap er trykket
   if (die > 0 && shakeMoving()) {
     die = 0;  // hånden rammer touch-knapperne når man ryster – ikke et rigtigt tryk
   }
