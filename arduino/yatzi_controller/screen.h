@@ -4,6 +4,8 @@
 
 void screenSetup();                   // viser "Forbinder..." indtil serveren svarer
 
+void showConnecting();                // "Forbinder..." – ved opstart og når forbindelsen er væk
+
 void showPair(const String& code);    // PAIR cccc   – koden der skal skrives i lobbyen
 void showJoined(const String& name);  // JOINED navn – parret med spilleren
 void showWait(const String& name);    // WAIT navn   – "Vent – navn"
