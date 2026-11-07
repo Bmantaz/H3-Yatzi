@@ -10,6 +10,7 @@ Mellemprojekt: et digitalt Yatzy-spil, hvor **Arduino Oplà** (MKR WiFi 1010) br
 - 🌐 [HTTP API-kontrakt](docs/api.md) – requests, spiltilstand og fejl for #33 og #40
 - 🧮 [Pointregler og point-API](docs/scoring.md) – alle 15 felter, bonus, strygning og turafslutning
 - 🎲 [Oplà-beskedhåndtering](docs/opla-handler.md) – ROLL/HOLD, STATE-svar, fælles spilsession og tests
+- 🔗 [WebSocket til Oplà](docs/opla-websocket.md) – forbindelser, READY/adgang, beskedgrænser og handlerintegration i #63
 
 ## Struktur
 
@@ -25,7 +26,9 @@ docs/                       GDD, DoD, protokol
 
 Backendens terningelogik, alle 15 pointfelter, bonus, pointtavle, de seks spil-endpoints og beskedhåndteringen af `ROLL`/`HOLD` er implementeret med automatiske tests. Ét feltvalg efter 1–3 kast afslutter turen. Handleren og HTTP-API'et deler sessionens lås; svarene kopierer også pointfelter og mulige point. Se [API-kontrakten](docs/api.md), [pointreglerne](docs/scoring.md) og [Oplà-beskedhåndteringen](docs/opla-handler.md).
 
-Løsningen til #40 er gennemgået og lokalt verificeret med 612 beståede tests og Release-build med 0 fejl og 0 advarsler. Afleveringsstatus og CI dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76). Frontenden bruger fortsat mock-data; visning og valg af pointfelter følger i #41. `/ws/opla`, lobby og parring, browser-bro og turskifte følger i de næste sprintopgaver. Den samlede fysiske forbindelse mellem Oplà, browser, server og frontend er endnu ikke verificeret.
+Ved slutkontrollen af #40 bestod 612 tests og Release-build med 0 fejl og 0 advarsler. Afleveringsstatus og CI for den opgave dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76).
+
+`/ws/opla` er implementeret og lokalt slutkontrolleret på `S2-12-websocket-opla`: samme forbindelser, READY/adgangskontrol, ressourcegrænser og ROLL/HOLD gennem handleren i alle miljøer. Handleren og HTTP deler spilsession, og STATE sendes kun til afsenderen. Standardens READY-behandler giver ingen parring eller kode; rigtig lobbyparring følger i #59, og integrationen afprøves med kontrolleret serverparring i tests. Release-build bestod med 0 fejl og 0 advarsler, og **794 tests bestod**. En separat lokal Production-server bestod transportprøven med en rigtig WebSocket-klient. PR og CI dokumenterer afleveringen til review; #63 afsluttes først efter merge og grøn CI på main. Turskifte og multiplayer følger i #44. Den samlede fysiske forbindelse mellem Oplà, browser, server og frontend er endnu ikke verificeret.
 
 ## Kom i gang
 
@@ -35,6 +38,8 @@ Løsningen til #40 er gennemgået og lokalt verificeret med 612 beståede tests 
 dotnet run --project backend/Yatzi.Api   # åbn http://localhost:5000
 dotnet test                              # kør tests
 ```
+
+`/ws/opla` fungerer i alle miljøer. Almindelig HTTP uden WebSocket-opgradering giver 400; fuldt forbindelsesregister giver 503. READY giver med standardbehandleren intet svar, og ROLL/HOLD afvises uden serverparring; se WebSocket-specifikationens test- og kørevejledning.
 
 Arduino: åbn `arduino/yatzi_controller/yatzi_controller.ino`, vælg board *Arduino MKR WiFi 1010* og upload.
 

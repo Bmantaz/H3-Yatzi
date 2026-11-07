@@ -4,7 +4,7 @@ namespace Yatzi.Api;
 
 /// <summary>
 /// Ejer serverens ene spil og spillernavn i hukommelsen. Registreres som singleton,
-/// så alle HTTP-kald arbejder på samme spil; en ny serverinstans starter uden spil.
+/// så HTTP-API'et og Oplà-handleren arbejder på samme spil; en ny serverinstans starter uden spil.
 /// HTTP-validering ligger i GameEndpoints, og spillereglerne ligger i Game.
 /// </summary>
 public sealed class GameSession

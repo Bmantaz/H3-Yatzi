@@ -3,7 +3,7 @@ namespace Yatzi.Api;
 /// <summary>
 /// Behandler Oplàens ROLL- og HOLD-linjer i API-laget og returnerer STATE-svar.
 /// Deler GameSession med HTTP-API'et og er uafhængig af netværk og hardware.
-/// Den kommende /ws/opla kalder HandleLine og sender svarene til Oplàen.
+/// /ws/opla kalder HandleLine efter adgangskontrol og sender svarene til Oplàen.
 /// </summary>
 public sealed class OplaMessageHandler
 {

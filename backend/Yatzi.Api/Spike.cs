@@ -6,8 +6,6 @@ public static class Spike
 {
     public static void MapSpike(this WebApplication app)
     {
-        app.UseWebSockets();
-
         app.Map("/ws/spike", async (HttpContext ctx) =>
         {
             if (!ctx.WebSockets.IsWebSocketRequest)
