@@ -95,9 +95,12 @@ public class LobbyStartSessionTests : IDisposable
         Task<LobbyJoinResult> join = _lobby.JoinAsync("A", "0000", _deadline.Token);
         await entered.Task.WaitAsync(_deadline.Token);
         var (_, second) = await JoinAsync("B");
+        var waitingSent = Signal();
+        second.SendAction = _ => { waitingSent.TrySetResult(); return Task.CompletedTask; };
         Task<LobbyStartResult> start = _lobby.StartAsync(_deadline.Token);
         try
         {
+            await waitingSent.Task.WaitAsync(_deadline.Token);
             Assert.True(_lobby.GetState().Started);
             Assert.False(start.IsCompleted);
             Assert.Equal("WAIT A", Lines(second)[^1]);
