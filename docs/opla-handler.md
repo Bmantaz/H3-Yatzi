@@ -2,7 +2,7 @@
 
 `OplaMessageHandler` omsætter Oplàens tekstlinjer til kast og hold/slip i backendens fælles spil. Handleren bestemmer, hvilken handling der kaldes, mens spilreglerne og tilstanden ligger i `GameSession` og `Yatzi.Core.Game`.
 
-Handleren er implementeret med automatiske tests uden fysisk hardware. HTTP-API, handler og `/ws/opla` bruger samme spilsession. WebSocket-tilkoblingen fra #63 fungerer i alle miljøer og kræver serverparring; standardens READY-behandler parrer ingen forbindelse, så integrationen afprøves gennem testværtens kontrollerede binding. Implementeringen og den lokale slutkontrol er gennemført på `S2-12-websocket-opla`; PR og CI dokumenterer afleveringen til review. Rigtig lobbyparring i #59 og den samlede fysiske forbindelse er fortsat udestående.
+Handleren er implementeret med automatiske tests uden fysisk hardware. HTTP-API, handler og `/ws/opla` bruger samme spilsession. WebSocket-tilkoblingen fra #63 fungerer i alle miljøer og kræver serverparring; standardens READY-behandler parrer ingen forbindelse, så integrationen afprøves gennem testværtens kontrollerede binding. Implementeringen er lokalt slutkontrolleret; afleveringsstatus, merge og CI dokumenteres i [PR #80](https://github.com/Bmantaz/H3-Yatzi/pull/80). Rigtig lobbyparring i #59 og den samlede fysiske forbindelse er fortsat udestående.
 
 ## Ansvar og dataflow
 
@@ -100,7 +100,7 @@ Adgangstjekket er accepttidspunktet, og der er intet `await` før handlerkaldet.
 
 | Opgave | Ansvar og status |
 |---|---|
-| #63 | Endpoint i alle miljøer, forbindelsessessioner, READY/adgang, ressourcegrænser og handler-/STATE-integration er implementeret og lokalt slutkontrolleret. Opgaven afleveres gennem én PR til review og afsluttes først efter merge og grøn CI på main. |
+| #63 | Endpoint i alle miljøer, forbindelsessessioner, READY/adgang, ressourcegrænser og handler-/STATE-integration er implementeret og lokalt slutkontrolleret. PR #80 dokumenterer afleveringsstatus og CI; opgavens færdigkrav er merge og grøn CI på main. |
 | #59 | Lobby, parringskoder, `READY`, `PAIR` og `JOINED`. |
 | #61 | Browser-bro mellem USB/Web Serial og `/ws/opla`. |
 | #35 og #42 | Frontendens rigtige API-kald og løbende visning af ændringer. |
@@ -130,7 +130,7 @@ Integrationstestene dækker en hel tur, handlinger gennem begge indgange, nyt sp
 
 [WebSocket-spiltestene](../backend/Yatzi.Tests/OplaWebSocketGameIntegrationTests.cs) tilføjer 32 testcases gennem det rigtige endpoint eller kontrollerede transportsockets med samme servicecontainer. De kontrollerer STATE, HTTP-samspil, nyt spil, regelafvisninger uden dobbeltlogning, modtagere, fragmentering, samtidige kast og sendesvigt. READY og logs signaleres gennem channels, og netværksarbejde synkroniseres med tasks uden faste ventepauser. Et ventende STATE spærrer ikke HTTP eller en anden forbindelse; et udført kast gentages ikke ved fejl eller annullering.
 
-**Lokalt efter step 5 af #63:** Release-build bestod med 0 fejl og 0 advarsler, og hele testsuiten bestod med **791 tests**, ingen fejlede eller blev sprunget over. Dette resultat er fra den lokale branch og er ikke ny GitHub-CI eller en fysisk Oplà-test. #63 er endnu ikke afleveret.
+**Lokalt efter step 5 af #63:** Release-build bestod med 0 fejl og 0 advarsler, og hele testsuiten bestod med **791 tests**, ingen fejlede eller blev sprunget over. Dette historiske resultat fra den lokale branch lå før GitHub-afleveringen og er ikke en fysisk Oplà-test.
 
 **Lokal slutkontrol i step 6:** Restore og Release-build bestod med 0 fejl og 0 advarsler, og **794 tests bestod** uden fejl eller oversprungne tests. Miljøtestene omfatter Development, Production, Staging og Test samt kontrolleret ROLL/STATE i Production. En separat Production-server bestod lokal transportprøve med rigtig WebSocket-klient; CI-resultater dokumenteres i PR'en. Den fysiske Oplà-integration er fortsat ikke verificeret.
 
