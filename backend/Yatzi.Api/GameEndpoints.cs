@@ -73,7 +73,12 @@ public static class GameEndpoints
                 return Results.BadRequest(new ApiErrorResponse(InvalidNameLengthMessage));
             }
 
-            return Results.Ok(session.NewGame(name));
+            try { return Results.Ok(session.NewGame(name)); }
+            catch (InvalidOperationException exception)
+            {
+                // Gyldigt input kan ikke overskrive et accepteret lobbyspil.
+                return Results.Conflict(new ApiErrorResponse(exception.Message));
+            }
         }
     }
 

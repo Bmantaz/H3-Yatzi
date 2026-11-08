@@ -13,6 +13,8 @@ namespace Yatzi.Tests;
 /// <summary>
 /// Tester routing, READY, adgang og transport i hukommelsen. READY- og logsignaler
 /// synkroniserer modtagelsen; ingen ekkokommando, fysisk Oplà eller åben port bruges.
+/// Klassens standardtestvært bruger RecordingReadyHandler til isoleret transport;
+/// særskilte tests opretter en ny vært med den rigtige LobbySession.
 /// </summary>
 public class OplaWebSocketEndpointTests : IDisposable
 {
@@ -64,26 +66,33 @@ public class OplaWebSocketEndpointTests : IDisposable
                 .ConfigureLogging(logging => logging.AddProvider(logs)));
         using var client = factory.CreateClient();
         var registry = factory.Services.GetRequiredService<OplaConnectionRegistry>();
-        Assert.IsType<PendingOplaReadyHandler>(factory.Services.GetRequiredService<IOplaReadyHandler>());
+        Assert.Same(factory.Services.GetRequiredService<LobbySession>(), factory.Services.GetRequiredService<IOplaReadyHandler>());
         using var created = await client.PostAsJsonAsync("/api/game/new", new { name = "Andreas" }, _deadline.Token);
         created.EnsureSuccessStatusCode();
         string before = await client.GetStringAsync("/api/game", _deadline.Token);
         using var socket = await factory.Server.CreateWebSocketClient()
             .ConnectAsync(new Uri("ws://localhost/ws/opla"), _deadline.Token);
         await SendAsync(socket, Encoding.UTF8.GetBytes("READY 0012"));
-        await SendAsync(socket, Encoding.UTF8.GetBytes("ROLL"));
-        Assert.Contains("READY eller parring mangler", (await logs.ReadAsync(_deadline.Token)).Message);
+        string pair = await ReceiveTextAsync(socket);
+        Assert.Matches("^PAIR [0-9]{4}$", pair);
+        await SendAsync(socket, Encoding.UTF8.GetBytes("READY 9999"));
+        Assert.Equal(pair, await ReceiveTextAsync(socket));
+        foreach (string command in new[] { "ROLL", "HOLD 1" })
+        {
+            await SendAsync(socket, Encoding.UTF8.GetBytes(command));
+            Assert.Contains("READY eller parring mangler", (await logs.ReadAsync(_deadline.Token)).Message);
+        }
         var connection = Assert.Single(registry.GetConnections());
         Assert.Equal(OplaConnectionState.Ready, connection.State);
         Assert.False(registry.TryGetPlayerId(connection.ConnectionId, out _));
         Assert.Equal(before, await client.GetStringAsync("/api/game", _deadline.Token));
         await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "test", _deadline.Token);
-        // Første svar er Close: hverken READY eller ROLL må have sendt PAIR/STATE/ekko.
+        // PAIR er læst. De afviste spilkommandoer må ikke have sendt STATE eller ekko.
         Assert.Equal(WebSocketMessageType.Close,
             (await socket.ReceiveAsync(new ArraySegment<byte>(new byte[256]), _deadline.Token)).MessageType);
         await connection.Completion.WaitAsync(_deadline.Token);
         Assert.Equal(0, registry.Count);
-        Assert.Single(logs.Entries);
+        Assert.Equal(2, logs.Entries.Count);
     }
 
     [Fact]
@@ -543,18 +552,23 @@ public class OplaWebSocketEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task Ready_DoesNotCreateGameAndDefaultHandlerIsPending()
+    public async Task Ready_DefaultLobbyIssuesCodeWithoutCreatingGame()
     {
         using var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder => builder.UseEnvironment("Development"));
         using var client = factory.CreateClient();
-        Assert.IsType<PendingOplaReadyHandler>(factory.Services.GetRequiredService<IOplaReadyHandler>());
+        Assert.Same(factory.Services.GetRequiredService<LobbySession>(), factory.Services.GetRequiredService<IOplaReadyHandler>());
         using var socket = await factory.Server.CreateWebSocketClient()
             .ConnectAsync(new Uri("ws://localhost/ws/opla"), _deadline.Token);
         await SendAsync(socket, Encoding.UTF8.GetBytes("READY 0012"));
-        // Luk efter READY. Første svar skal være Close, så hverken ekko eller PAIR er sendt.
+        Assert.Matches("^PAIR [0-9]{4}$", await ReceiveTextAsync(socket));
+        var registry = factory.Services.GetRequiredService<OplaConnectionRegistry>();
+        var connection = Assert.Single(registry.GetConnections());
+        Assert.Equal(OplaConnectionState.Ready, connection.State);
+        Assert.False(registry.TryGetPlayerId(connection.ConnectionId, out _));
         await socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "test", _deadline.Token);
         Assert.Equal(WebSocketMessageType.Close, (await socket.ReceiveAsync(new ArraySegment<byte>(new byte[256]), _deadline.Token)).MessageType);
+        await connection.Completion.WaitAsync(_deadline.Token);
         using var missing = await client.GetAsync("/api/game", _deadline.Token);
         Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
     }
@@ -599,7 +613,7 @@ public class OplaWebSocketEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task ReconnectWithSameCode_DoesNotInheritBindingOrOldCleanup()
+    public async Task RecordingReadyHandler_DoesNotRecognizeCodeAndOldCleanupKeepsExplicitNewBinding()
     {
         Guid playerId = Guid.NewGuid();
         using var old = await ConnectAsync();

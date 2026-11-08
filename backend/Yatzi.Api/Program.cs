@@ -7,14 +7,16 @@ using Yatzi.Api;
 var builder = WebApplication.CreateBuilder(args);
 
 // HTTP-API'et og beskedhåndteringen deler én session gennem dependency injection.
-// Selve spillet oprettes først af POST /api/game/new.
+// Spillet oprettes af POST /api/game/new eller lobbyens start gennem samme session.
 builder.Services.AddSingleton<GameSession>();
 builder.Services.AddSingleton<OplaMessageHandler>();
 // Transportregisteret deler forbindelser, men ejer ingen spiltilstand.
 builder.Services.AddSingleton<OplaConnectionRegistry>();
 builder.Services.AddSingleton(TimeProvider.System);
-// #59 erstatter standarden med lobby/parring. READY alene binder ingen spiller.
-builder.Services.AddSingleton<IOplaReadyHandler, PendingOplaReadyHandler>();
+// Samme lobbyinstans ejer READY-koder og tilmeldinger i alle requests.
+// PAIR giver ingen binding; HTTP-join binder spiller-id og sender JOINED.
+builder.Services.AddSingleton<LobbySession>();
+builder.Services.AddSingleton<IOplaReadyHandler>(services => services.GetRequiredService<LobbySession>());
 
 var app = builder.Build();
 
@@ -35,6 +37,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 app.MapSpike(); // S1.10 – midlertidigt, se Spike.cs
 
 app.MapGameApi();
+app.MapLobbyApi();
 app.MapOplaWebSocket(); // #63: samme adgangskontrol og STATE-svar i alle miljøer.
 
 app.Run();

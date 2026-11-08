@@ -155,6 +155,26 @@ public class OplaConnectionTests
         Assert.Equal(1, socket.AbortCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Close_DisposalIsOnlyExpectedWhenSocketIsAlreadyTerminal(bool terminal)
+    {
+        using var socket = new ControlledWebSocket();
+        socket.CloseAction = _ =>
+        {
+            if (terminal) socket.Abort();
+            throw new ObjectDisposedException("Afsluttet lukkehåndtryk");
+        };
+        var connection = new OplaConnection(Guid.NewGuid(), socket);
+        if (terminal)
+            await connection.CloseAsync(WebSocketCloseStatus.NormalClosure, "test");
+        else
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => connection.CloseAsync(WebSocketCloseStatus.NormalClosure, "test"));
+        Assert.Equal(1, socket.CloseCount);
+        Assert.Equal(0, socket.DisposeCount);
+    }
+
     [Fact]
     public async Task CancellationDuringSend_PropagatesAndReleasesSendLock()
     {

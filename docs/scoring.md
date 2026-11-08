@@ -10,6 +10,8 @@ Session- og HTTP-integrationen er implementeret og automatisk testet uden fysisk
 
 ## Grundlag og beslutninger
 
+**Aktuel udvidelse i #59 trin 5–6:** [Lobbystart](lobby.md) opretter 1–6 deltagere med hver sin Game og pointtavle. HTTP-kast, hold og feltvalg påvirker første deltager. Første spillers aktuelle Oplà kan kaste/holde efter identitetskontrol under samme sessionslås som handlingen. Øvrige tavler bevares, og feltvalg låser første tur uden turskifte. Spillets kerne og pointregler er uændrede. Næste tur følger i #44; de historiske #40-resultater ovenfor er bevaret.
+
 | Kilde | Betydning for specifikationen |
 |---|---|
 | [Opgave #40](https://github.com/Bmantaz/H3-Yatzi/issues/40) | Kræver alle 15 felter, bonus ved mindst 63, placering, strygning, låste felter og tests. |
@@ -112,7 +114,7 @@ Et accepteret feltvalg udfører samlet følgende:
 
 En afvist handling ændrer ingen tilstand. Et afvist feltvalg afslutter derfor heller ikke turen. Der oprettes ingen offentlig funktion til at åbne turen igen i #40.
 
-**Midlertidig grænse til #44:** Efter det første accepterede feltvalg kan det nuværende spil læses, men næste tur er endnu ikke implementeret. Det gælder også med én spiller. Et nyt spil gennem det eksisterende `/api/game/new` erstatter fortsat hele spillet og nulstiller også pointtavle og `turnCompleted`; det bevarer ikke tidligere point som en ny tur ville gøre.
+**Midlertidig grænse til #44:** Efter det første accepterede feltvalg kan det nuværende spil læses, men næste tur er endnu ikke implementeret. Det gælder også med én spiller. Før lobbystart kan `/api/game/new` erstatte et selvstændigt spil og nulstille point og `turnCompleted`. Efter accepteret lobbystart afvises denne nulstilling med 409; et lobbyspil kan ikke genstartes før livscyklussen i #44. En servergenstart rydder hukommelsen.
 
 ## Ansvar og dataflow
 
@@ -130,7 +132,7 @@ Spiltilstanden forbliver i hukommelsen og går tabt ved servergenstart. Der tilf
 
 ## HTTP-kontrakt implementeret i step 7
 
-**Denne udvidelse er implementeret og automatisk testet i API'et.** De eksisterende felter `players`, `currentPlayer`, `dice`, `held` og `rollsUsed` bevarer deres betydning. #40 bruger fortsat én spiller og `currentPlayer: 0`; multiplayer følger i #44.
+**Denne udvidelse er implementeret og automatisk testet i API'et.** De eksisterende felter `players`, `currentPlayer`, `dice`, `held` og `rollsUsed` bevarer deres betydning. #40's eksempler nedenfor viser ét selvstændigt spil; #59 trin 5 tillader 1–6 deltagere fra lobbystart. `currentPlayer` er fortsat 0, indtil #44 tilføjer turskifte.
 
 ### Spiltilstand
 

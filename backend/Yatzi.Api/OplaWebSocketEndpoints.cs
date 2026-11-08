@@ -31,7 +31,7 @@ public static class OplaWebSocketEndpoints
     /// </summary>
     public static async Task HandleAsync(HttpContext context, OplaConnectionRegistry registry,
         IHostApplicationLifetime lifetime, ILoggerFactory loggerFactory,
-        TimeProvider timeProvider, IOplaReadyHandler readyHandler, OplaMessageHandler messageHandler)
+        TimeProvider timeProvider, IOplaReadyHandler readyHandler, OplaMessageHandler messageHandler, LobbySession lobbySession)
     {
         if (!context.WebSockets.IsWebSocketRequest)
         {
@@ -63,12 +63,22 @@ public static class OplaWebSocketEndpoints
                 throw new InvalidOperationException("Oplà-forbindelsens reservation er ikke længere tilgængelig.");
 
             closeStatus = await ReceiveAsync(socket, connection, registry, readyHandler, messageHandler,
-                logger, timeProvider, stopping.Token);
+                lobbySession, logger, timeProvider, stopping.Token);
         }
         catch (OperationCanceledException) when (stopping.IsCancellationRequested)
         {
             // Requesten eller værten stopper. Oprydning må også ske med et annulleret request-token.
             closeStatus = WebSocketCloseStatus.EndpointUnavailable;
+        }
+        catch (OperationCanceledException) when (connection?.IsClosing == true)
+        {
+            // En overtagelses lukke-timeout kan afbryde socketens ventende I/O,
+            // uden at requesten eller hele serveren er annulleret.
+        }
+        catch (ObjectDisposedException) when (connection?.IsClosing == true)
+        {
+            // Den fælles lukkeopgave kan have afsluttet transporten, mens
+            // modtagelsesløkken stadig ventede. Finally ejer stadig oprydningen.
         }
         catch (WebSocketException exception)
         {
@@ -101,7 +111,7 @@ public static class OplaWebSocketEndpoints
 
     private static async Task<WebSocketCloseStatus> ReceiveAsync(WebSocket socket,
         OplaConnection connection, OplaConnectionRegistry registry, IOplaReadyHandler readyHandler,
-        OplaMessageHandler messageHandler, ILogger logger, TimeProvider timeProvider, CancellationToken cancellationToken)
+        OplaMessageHandler messageHandler, LobbySession lobbySession, ILogger logger, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         var rateLimiter = new OplaMessageRateLimiter(timeProvider);
         byte[] payload = new byte[MaxPayloadBytes];
@@ -182,20 +192,18 @@ public static class OplaWebSocketEndpoints
                 continue;
             }
 
-            if (!registry.TryGetPlayerId(connection.ConnectionId, out _))
+            if (!registry.TryGetPlayerId(connection.ConnectionId, out Guid playerId))
             {
                 logger.LogWarning("Oplà-forbindelsen {ConnectionId} afviste beskeden: READY eller parring mangler. Længde: {Length}.",
                     connection.ConnectionId, codePoints);
                 continue;
             }
-            // Adgangstjekket er accepttidspunktet; der er intet await før kaldet.
-            // Handleren afslutter spilhandlingen og kopierer tilstanden under
-            // GameSession-låsen, før vi afventer netværket. En lukning herefter
-            // tilbagekalder nye handlinger, men gentager eller fortryder ikke denne.
-            var replies = messageHandler.HandleLine(text);
-            foreach (string reply in replies)
-                if (!await connection.SendAsync(reply, cancellationToken))
-                    return WebSocketCloseStatus.NormalClosure;
+            // Lobbyen genkontrollerer bindingen og ordner accepten med start og
+            // overtagelse. Handleren fører PlayerId til GameSession, som kontrollerer
+            // spiller og handling samlet. Svaret køes før netværksafventning.
+            if (!await lobbySession.HandleGameInputAsync(connection.ConnectionId, playerId, text,
+                messageHandler, cancellationToken))
+                return WebSocketCloseStatus.NormalClosure;
         }
         return WebSocketCloseStatus.EndpointUnavailable;
     }

@@ -16,7 +16,8 @@ public sealed record GameStateResponse(
 
 /// <summary>
 /// Spilleroplysninger til frontenden. Name er det validerede, trimmede spillernavn.
-/// Pointtavlen er en selvstændig kopi. #40 bruger én spiller; multiplayer følger i #44.
+/// Pointtavlen er en selvstændig kopi. Selvstændigt spil har én spiller; lobbyspil
+/// har 1–6 i tilmeldingsrækkefølge. Turskifte følger i #44.
 /// </summary>
 public sealed record PlayerResponse(string Name, ScorecardResponse Scorecard);
 
@@ -34,3 +35,6 @@ public sealed record ScorecardResponse(
 /// Fælles HTTP-fejlformat. Message er en dansk forklaring, som frontenden kan vise.
 /// </summary>
 public sealed record ApiErrorResponse(string Message);
+
+/// <summary>Serverinternt input til lobbystart; spiller-id udstilles fortsat kun i lobby-JSON.</summary>
+public sealed record LobbyGamePlayer(Guid Id, string Name);

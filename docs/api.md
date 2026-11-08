@@ -6,6 +6,8 @@ Denne kontrakt beskriver de seks HTTP-kald til oprettelse, kast, hold/slip og po
 
 ## Ansvar og dataflow
 
+**Aktuel udvidelse i #59 trin 5–6:** POST /api/lobby/start opretter 1–6 deltagere i samme GameSession med egne pointtavler og første deltager som aktiv. Spil-JSON bruger samme felter som nedenfor. HTTP-handlinger påvirker første deltager, og /api/game/new giver 409 efter lobbystart. Første spillers aktuelle Oplà kan også kaste/holde gennem servervalideret PlayerId; HTTP tilføjes ingen identitetsfelter eller automatiske WebSocket-udsendelser. Se [lobbykontrakten](lobby.md). Turskifte følger i #44. De historiske #40-resultater ovenfor bevares.
+
 Frontenden sender handlinger til `Yatzi.Api`, som bruger reglerne i `Yatzi.Core.Game` og returnerer spiltilstanden som JSON. Frontenden viser derefter svaret. Terningeværdier og antal brugte slag bestemmes af serveren. Feltvalg går gennem `GameSession` til `Game → Scorecard → ScoreCalculator`. Sessionen bruger samme lås til turkontrol, registrering og kopiering af hele svaret. Arrays, spilleroplysninger og begge dictionaries er selvstændige kopier i hvert svar.
 
 ```text
@@ -113,8 +115,8 @@ Et nyt spil returnerer denne starttilstand:
 
 | Felt | Type og betydning |
 |---|---|
-| `players` | Array med præcis én spiller. Spillerens `name` er det trimmede navn; `scorecard` indeholder pointtavlen. |
-| `currentPlayer` | Heltalsindeks i `players`; altid `0` i #40. |
+| `players` | Array med én spiller fra `/api/game/new` eller 1–6 i tilmeldingsrækkefølge fra lobbystart. `name` er det validerede navn, og hver `scorecard` er en selvstændig pointtavle. Spiller-id'er udstilles kun i lobby-JSON. |
+| `currentPlayer` | Heltalsindeks i `players`; fortsat `0`, indtil #44 tilføjer turskifte. Terninger, hold, slag, mulige point og turstatus tilhører denne første deltager. |
 | `dice` | Præcis fem heltal i terningernes rækkefølge. `0` betyder endnu ikke kastet. Efter første kast er alle værdier fra 1 til 6. |
 | `held` | Præcis fem booleske værdier i samme rækkefølge som `dice`. `true` betyder holdt. |
 | `rollsUsed` | Heltal fra 0 til 3: antal brugte slag i den aktuelle tur. |
@@ -140,6 +142,7 @@ De beskrevne klientfejl returneres som `application/json` med ét felt, `message
 | `/new`: Ugyldig JSON, manglende body eller en body, der ikke er et JSON-objekt | **400 Bad Request** | Requesten skal indeholde et gyldigt JSON-objekt. |
 | `/new`: `name` mangler, er `null` eller har en anden type end tekst | **400 Bad Request** | Navnet skal være tekst. |
 | `/new`: Det trimmede navn er tomt eller længere end 20 tegn | **400 Bad Request** | Navnet skal indeholde mellem 1 og 20 tegn. |
+| `/new`: Gyldigt input efter accepteret lobbystart | **409 Conflict** | Et lobbyspil er allerede startet og kan ikke nulstilles her. |
 | `/hold/{n}`: `n` er ikke et heltal fra 1 til 5, fx `0`, `6` eller `abc` | **400 Bad Request** | Terningens nummer skal være mellem 1 og 5. |
 | GET eller handling med gyldigt input før et spil er oprettet | **404 Not Found** | Der er ikke oprettet et spil. Start et nyt spil først. |
 | Kast efter tredje slag i en åben tur | **409 Conflict** | Der er allerede brugt tre slag i denne tur. |
@@ -554,10 +557,10 @@ HTTP og Oplà-handlerens `ROLL`/`HOLD` bruger samme lås. Efter feltvalg giver h
 ## Spillets levetid og afgrænsning
 
 - Serveren opbevarer ét fælles spil i hukommelsen. Alle browsere, der kalder denne server, arbejder på samme spil.
-- Der findes intet spil ved serverstart. Først et gyldigt `POST /api/game/new` opretter tilstanden.
-- Et nyt spil nulstiller terninger, hold-markeringer, slag, alle 15 pointfelter og turstatus og bruger det nye spillernavn.
+- Der findes intet spil ved serverstart. `POST /api/game/new` opretter et selvstændigt spil; `POST /api/lobby/start` opretter lobbyens deltagere i samme session.
+- Før lobbystart nulstiller et nyt selvstændigt spil terninger, hold, slag, pointfelter og turstatus. Lobbystart erstatter et eventuelt selvstændigt spil med et friskt lobbyspil. Efter lobbystart afvises `/api/game/new` med 409 og beskeden `Et lobbyspil er allerede startet og kan ikke nulstilles her.`; ugyldigt input giver fortsat 400 før denne kontrol.
 - Ved genstart af serveren går spiltilstanden tabt; der bruges ingen database i #40.
-- Lobby, multiplayer, næste tur, frontendens pointtavle og den samlede fysiske Oplà-integration følger deres særskilte opgaver.
+- [Lobbyens READY/PAIR, GET, join/JOINED, genforbindelse og start](lobby.md) er implementeret i #59 trin 2–5. Egne pointtavler er oprettet, men alle handlinger vedrører fortsat første deltager. Oplà-spillerkontrol, næste tur, frontendens pointtavle og fysisk integration følger de resterende trin og særskilte opgaver.
 
 ## Kontrolscenarier og tests
 

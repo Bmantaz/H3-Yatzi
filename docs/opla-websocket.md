@@ -2,7 +2,7 @@
 
 Denne specifikation fastlægger ansvar, forbindelsestilstande og integrationsgrænser for [#63 – WebSocket /ws/opla](https://github.com/Bmantaz/H3-Yatzi/issues/63). Den beskriver transporten, beskedkontrollen, READY/adgangen, handlerintegrationen og slutkontrollen fra de seks interne steps. Afleveringsstatus, merge og CI dokumenteres i [PR #80](https://github.com/Bmantaz/H3-Yatzi/pull/80).
 
-**Implementeret funktionalitet:** `/ws/opla` fungerer i alle miljøer med eget forbindelsesregister, beskedgrænser, streng READY-genkendelse, serverstyret adgang og den eksisterende `OplaMessageHandler`. En serverparret forbindelse kan udføre ROLL/HOLD gennem den fælles `GameSession` og modtage STATE på samme forbindelse. Standardbehandleren for READY udsteder ingen kode, binder ingen spiller og sender intet svar. Rigtig parring følger i #59; indtil da bruger de automatiske tests testværtens kontrollerede serverbinding. Ekkoet er fjernet. Grænserne er 12 samtidige eller reserverede forbindelser, 256 payload-bytes, 64 Unicode-kodepunkter og 20 tekstbeskeder i et rullende sekund pr. forbindelse. Almindelig HTTP uden opgradering giver 400 i alle miljøer; fuldt register giver 503. PR #80 dokumenterer afleveringsstatus og CI; opgavens færdigkrav er merge og grøn CI på main.
+**Implementeret funktionalitet:** `/ws/opla` fungerer i alle miljøer med eget forbindelsesregister, beskedgrænser, streng READY-genkendelse og serverstyret adgang. Lobbyen giver PAIR, HTTP-join binder spilleren og sender JOINED, og genforbindelse overtager samme identitet med tilbagekaldelse af gammel adgang. Start og READY sender STATE/WAIT. Trin 6 af #59 fører PlayerId gennem handleren til GameSession, så kun første spillers aktuelle Oplà kan kaste/holde efter start. Spilsvar bruger lobbyens ordnede kø. Se [lobbyens aktuelle status](lobby.md). Ekkoet er fjernet. Grænserne er 12 samtidige eller reserverede forbindelser, 256 payload-bytes, 64 Unicode-kodepunkter og 20 tekstbeskeder i et rullende sekund pr. forbindelse. Almindelig HTTP uden opgradering giver 400 i alle miljøer; fuldt register giver 503. PR #80 dokumenterer afleveringsstatus og CI for #63. De historiske resultater nedenfor vedrører #63; lokal kontrol af #59 trin 2 bestod med 814 tests, trin 3 med 889, trin 4 med 946 og trin 5 med 993 samt 0 buildfejl/advarsler.
 
 Den eksisterende [kommunikationsprotokol](protocol.md) og dens beskeder er bevaret. Hvor protokollen angiver omtrentlige ressourcegrænser, fastlægger dette dokument de konkrete værdier til #63.
 
@@ -14,12 +14,12 @@ Den eksisterende [kommunikationsprotokol](protocol.md) og dens beskeder er bevar
 | [OplaConnectionRegistry](../backend/Yatzi.Api/OplaConnectionRegistry.cs) | Singleton med atomisk reservation af de 12 pladser, servergenererede Guid-identiteter, sessionopslag, READY-registrering, spillerbinding/adgangsopslag og afsendelse til en bestemt modtager. Reservationer tæller med, før accept er afsluttet. |
 | [OplaConnection](../backend/Yatzi.Api/OplaConnection.cs) | Én session pr. accepteret socket. Tilstand og spiller-id beskyttes samlet. Afsendelser på samme socket serialiseres med SemaphoreSlim. Lukning tilbagekalder straks adgang og har en samlet frist på fem sekunder, inklusive ventetid på afsendelseslåsen. |
 | [OplaMessageRateLimiter](../backend/Yatzi.Api/OplaMessageRateLimiter.cs) | Én tæller pr. forbindelses modtagelsesløkke. Gemmer højst 20 monotone tidsstempler og afviser besked 21 inden for et rullende sekund. Kender hverken WebSocket, parring eller spil. |
-| [IOplaReadyHandler og PendingOplaReadyHandler](../backend/Yatzi.Api/IOplaReadyHandler.cs) | Serverintern grænse til #59 og statsløs standard uden parring eller svar. Modtager forbindelses-id, eventuel kode og annullering. |
+| [IOplaReadyHandler](../backend/Yatzi.Api/IOplaReadyHandler.cs) og [LobbySession](../backend/Yatzi.Api/LobbySession.cs) | Serverintern READY-grænse og singleton med kodeudstedelse, lobbyspillere, genforbindelse/overtagelse og ordnede PAIR/JOINED-batches pr. forbindelse. |
 | [OplaConnectionState](../backend/Yatzi.Api/OplaConnectionState.cs) | Tilstandene `Connected`, `Ready`, `Paired` og `Closed`. Closed gælder fra lukningens start, før netværksarbejdet er afsluttet. |
 
-[Program.cs](../backend/Yatzi.Api/Program.cs) registrerer registeret, systemets `TimeProvider` og `IOplaReadyHandler` med `PendingOplaReadyHandler` som statsløs singleton. #59 erstatter denne implementering med lobby/parring. Endpointet modtager den allerede registrerede singleton `OplaMessageHandler`, som deler `GameSession` med HTTP-API'et. `UseWebSockets()` kaldes ét centralt sted for både `/ws/opla` og `/ws/spike`; spikens øvrige adfærd er bevaret. `TimeProvider` lader testene styre ratens tidsstempler og udløse lukkegrænsen uden faste ventepauser. Ratetælleren oprettes direkte i modtagelsesløkken og registreres ikke som singleton.
+[Program.cs](../backend/Yatzi.Api/Program.cs) registrerer registeret, systemets `TimeProvider` og én `LobbySession`, som også udstilles som `IOplaReadyHandler`. Den erstatter den midlertidige tomme standard fra #63. Endpointet modtager den allerede registrerede singleton `OplaMessageHandler`, som deler `GameSession` med HTTP-API'et. `UseWebSockets()` kaldes ét centralt sted for både `/ws/opla` og `/ws/spike`; spikens øvrige adfærd er bevaret. `TimeProvider` lader testene styre ratens tidsstempler og udløse lukkegrænsen uden faste ventepauser. Ratetælleren oprettes direkte i modtagelsesløkken og registreres ikke som singleton.
 
-Der returneres ikke ekko. Gyldigt READY registreres og videresendes til READY-behandleren uden Warning. Øvrige enkeltlinjer kræver en servervalideret spillerbinding. Uden binding gives én transport-Warning om manglende READY/parring og intet svar. Med binding leveres linjen uændret til handleren, som accepterer ROLL/HOLD eller afviser med sin egen Warning. Transporten gentager ikke denne afvisningslog. Mellemrum alene er ikke tom tekst og når derfor adgangskontrollen og eventuelt handleren.
+Der returneres ikke ekko. Gyldigt READY videresendes til READY-behandleren uden Warning. Øvrige enkeltlinjer kræver en servervalideret spillerbinding. Uden binding gives én transport-Warning og intet svar. LobbySession genkontrollerer bindingen og afviser lobbyspillere før start med én lobby-Warning. Efter start fører handleren PlayerId til sessionslåsen, hvor kun første deltager må handle. Identitets-/regelafvisninger giver én handler-Warning uden svar; transporten gentager ikke logningen. Mellemrum alene når adgangskontrollen og eventuelt handlerens formatkontrol.
 
 I alle miljøer afvises almindelig HTTP uden WebSocket-opgradering med 400, og et 13. forbindelsesforsøg får 503 uden opgradering. Binære beskeder, ugyldig UTF-8 og payload over 256 bytes medfører lukning. Bufferen gemmer højst 256 payload-bytes; en særskilt prøvebyte opdager overskridelsen, også inden sidste fragment. Fragmenteret UTF-8 afkodes først, når hele beskeden er modtaget.
 
@@ -34,7 +34,7 @@ Bytegrænsen og afvisning af binære beskeder håndhæves under modtagelsen. Nå
 3. **Kodepunkter:** `EnumerateRunes()` tæller højst 64 Unicode-kodepunkter, inklusive mellemrum og debugpræfiks. Kombinerende tegn tæller selvstændigt. Overskridelse lukker med `MessageTooBig` (1009), ligesom overskridelse af bytegrænsen. 64 firebyte-emojis fylder 256 bytes og består længdekontrollerne, men skal stadig bestå de følgende kontroller; 65 ASCII-tegn afvises.
 4. **Enkeltlinje:** Tom tekst eller ethvert CR/LF ignoreres med én Warning og intet svar. Forbindelsen kan fortsætte med næste besked. Teksten trimmes, splittes eller normaliseres ikke.
 5. **Debug:** En linje med `#` som første tegn ignoreres uden svar eller Warning, når de foregående kontroller er bestået. `# debug\nROLL` afvises derfor som linjefejl.
-6. **READY, adgang og handler:** Gyldigt READY registreres og leveres til READY-behandleren. Øvrig tekst kræver en spillerbinding og går derefter uændret til `OplaMessageHandler.HandleLine`. Hver returneret linje sendes særskilt til samme forbindelse; en tom svarliste giver ingen afsendelse.
+6. **READY, adgang og handler:** Gyldigt READY leveres til READY-behandleren. Øvrig tekst og serverens PlayerId går gennem lobbyens bindingsgenkontrol til handleren. Accepterede lobbyspilsvar køes i rækkefølge og sendes særskilt til samme forbindelse; en tom svarliste giver ingen afsendelse.
 
 Ratevinduet bruger `TimeProvider.GetTimestamp()` og `GetElapsedTime()`, ikke vægurets klokkesekunder. En post med alder præcis ét sekund er udløbet; yngre poster bliver i køen. Hver forbindelse har sin egen kø, som kun bruges af dens modtagelsesløkke. Genforbindelse starter med en ny tæller.
 
@@ -50,13 +50,13 @@ Endpointet kalder `TryMarkReady` før `IOplaReadyHandler.HandleReadyAsync(Connec
 
 Lukning markerer straks `Closed` og tømmer bindingen, inden netværkslukningen afventes. `Remove` tilbagekalder også adgang på gamle objektreferencer uden selv at lukke eller dispose socketen. Tilstand og identitet beskyttes af én kort tilstandslås. Registeroperationer finder sessionen under registerlåsen og udfører kun synkrone tilstandsoperationer der; ingen netværksoperation udføres under disse låse. Oprydning bruger kun det konkrete `ConnectionId`, så en nyere forbindelses binding bevares.
 
-### Handler og svar fra step 5
+### Handler, identitet og ordnede svar
 
-Endpointet kontrollerer annullering og spillerbinding uden et `await` før det synkrone handlerkald. Adgangstjekket er accepttidspunktet: en allerede lukket forbindelse afvises, mens en godkendt handling kan færdiggøres, selv om forbindelsen lukker bagefter. Spilreglerne gælder stadig i handleren og kernen.
+Endpointet læser serverbindingen. LobbySession genkontrollerer den under lobbylåsen, afviser en forkert aktuel forbindelse eller en tilmeldt spiller før start og kalder handleren med PlayerId. Under GameSession-låsen kontrolleres annullering og aktiv spiller sammen med handlingen og svarkopien. Start og overtagelse kan ikke ligge mellem lobbyens genkontrol og handlingen. En lukning efter accepteret kontrol fortryder ingen handling.
 
-Handleren kaldes præcis én gang pr. accepteret komplet linje. Den eksisterende signatur `IReadOnlyList<string> HandleLine(string? line)` og STATE-formatet er bevaret. `PlayerId` er adgangsbetingelsen i transporten; handleren modtager ikke spiller-id og arbejder fortsat på serverens fælles enkeltspillerspil. To parrede testforbindelser har ikke hvert sit spil og dokumenterer ikke multiplayer eller turkontrol i #44.
+Handleren kaldes én gang efter godkendt bindings-/startkontrol med `HandleLine(line, playerId, cancellationToken)`. Det valgfrie id bevarer direkte enkeltspillerbrug; kald uden id kan ikke påvirke et lobbyspil. STATE-formatet er uændret. Første deltager forbliver aktiv; turskifte følger i #44.
 
-Handleren afslutter spilhandlingen og kopierer tilstanden under `GameSession`-låsen, før netværksafsendelse afventes. Svar sendes i rækkefølge som individuelle tekstbeskeder gennem `OplaConnection.SendAsync`. Et ventende svar beholder handlingens eget STATE, selv om HTTP eller en anden forbindelse ændrer spillet. Der foretages intet ekstra spilopslag eller nogen broadcast.
+Handleren kopierer tilstanden under GameSession-låsen. Lobbyspilsvar reserveres i samme kø som JOINED, start og READY, før lobbylåsen slippes. Hver linje sendes som separat tekstbesked gennem registeret og OplaConnection.SendAsync uden tilstandslås. Svaret beholder handlingens eget STATE uden ekstra spilopslag eller broadcast. Gamle batches beholder deres gamle forbindelses-id.
 
 Hvis afsendelsen returnerer `false`, forlades modtagelsesløkken. Sendesvigt og annullering bruger den eksisterende fejlgrænse og oprydning. En udført handling rulles ikke tilbage, gemmes ikke til genafspilning og gentages ikke; dens svar flyttes heller ikke til en ny forbindelse. Ingen register-, tilstands- eller spilsessionslås holdes under netværksafsendelsen.
 
@@ -66,11 +66,11 @@ De nye [endpoint-tests](../backend/Yatzi.Tests/OplaWebSocketEndpointTests.cs) br
 
 Step 3 udvider endpoint- og levetidstestene med kodepunkter, fragmentering, rate, afvisninger, logging og fortsættelse efter linjefejl. [Ratetællerens tests](../backend/Yatzi.Tests/OplaMessageRateLimiterTests.cs) dækker 20/21, præcis ét sekund, delvist udløb, skift af klokkesekund og uafhængighed af væguret. Testene styrer tiden og afventer operationerne uden faste ventepauser.
 
-Step 4 erstatter ekkobaseret synkronisering med READY- og logsignaler gennem channels samt eksplicit afsluttet lukning. Testudgaven af READY-behandleren kan binde en spiller serverinternt; den findes kun i testprojektet og tilgås ikke gennem en klientkommando, testrute eller produktionsindstilling. [Standardbehandlerens tests](../backend/Yatzi.Tests/PendingOplaReadyHandlerTests.cs) kontrollerer, at den ikke giver adgang eller svar og respekterer annullering. Endpoint-, register- og levetidstestene dækker strengt READY-format, gentagelser, konkurrerende bindinger, tilbagekaldt adgang under lukning, sen binding, genforbindelse og fejl/annullering under READY-behandling.
+Step 4 i #63 erstattede ekkobaseret synkronisering med READY- og logsignaler gennem channels samt eksplicit afsluttet lukning. Testudgaven af READY-behandleren kan binde en spiller serverinternt; den findes kun i testprojektet og tilgås ikke gennem en klientkommando, testrute eller produktionsindstilling. Den daværende tomme standards tests er nu erstattet af [LobbySessionTests](../backend/Yatzi.Tests/LobbySessionTests.cs), som tester PAIR uden adgang, kodekollisioner, oprydning, samtidighed og afsendelsesfejl. Endpoint-, register- og levetidstestene bevarer kontrollen af strengt READY-format, gentagelser, konkurrerende bindinger, tilbagekaldt adgang under lukning, sen binding, genforbindelse og fejl/annullering under READY-behandling.
 
 [Spiltransportens integrationstests](../backend/Yatzi.Tests/OplaWebSocketGameIntegrationTests.cs) tilføjer 32 testcases fra step 5 med den rigtige handler, servicecontainer og HTTP-API. De dækker ROLL/HOLD og STATE, bevarede terninger, HTTP-samspil og nyt spil, handlerafvisninger uden dobbeltlogning, præcise modtagere, fragmentering, samtidige kast og transportfejl. Kontrollerede sockets viser, at en ventende afsendelse ikke spærrer HTTP eller andre forbindelser, og at fejl, `false` og annullering ikke gentager et accepteret kast. Tests synkroniserer på operationer, READY og logs uden faste ventepauser.
 
-Step 6 fjerner den midlertidige Development-begrænsning og endpointets miljøafhængighed. Miljøtestene dækker Development, Production, Staging og Test: HTTP uden opgradering giver 400, WebSocket accepteres, og standardbehandleren giver ingen kode eller adgang. En særskilt Production-test med kontrolleret serverparring verificerer rigtig ROLL/STATE og fælles HTTP-spiltilstand. Ingen testbinding kan aktiveres gennem klienten eller konfigurationen.
+Step 6 i #63 fjernede den midlertidige Development-begrænsning og endpointets miljøafhængighed. Miljøtestene dækker Development, Production, Staging og Test: HTTP uden opgradering giver 400, og WebSocket accepteres. Efter #59 trin 2 kontrollerer disse tests PAIR, stabil kode og samme singleton uden adgang til ROLL/HOLD. [LobbyApiTests](../backend/Yatzi.Tests/LobbyApiTests.cs) dækker nu også HTTP-join, binding, JOINED, gentaget READY og genforbindelse efter lukning eller fra en stadig åben forbindelse i alle fire miljøer. En særskilt Production-test med kontrolleret serverparring verificerer rigtig ROLL/STATE og fælles HTTP-spiltilstand. Ingen testbinding kan aktiveres gennem klienten eller konfigurationen.
 
 **Verificeret lokalt efter step 2:** Release-build bestod med 0 fejl og 0 advarsler. Hele testsuiten bestod med **669 tests**, heraf de 612 eksisterende og 57 nye; ingen blev sprunget over. Diff-/whitespacekontrol og dokumentets 17 lokale links bestod. En separat lokal Kestrel-server blev desuden startet med `--environment Development`: en rigtig WebSocket returnerede `READY` uændret og lukkede normalt. Med `--environment Production` gav `/ws/opla` HTTP 503. Testserverne blev stoppet efter kontrollen. Dette er lokale resultater; ny GitHub-CI og fysisk hardware er ikke afprøvet i step 2.
 
@@ -81,6 +81,8 @@ Step 6 fjerner den midlertidige Development-begrænsning og endpointets miljøaf
 **Verificeret lokalt efter step 5:** Release-build bestod med 0 fejl og 0 advarsler. Hele testsuiten bestod med **791 tests**, heraf de 759 fra step 4 og 32 nye integrationstestcases. Ingen fejlede eller blev sprunget over. Diffkontrol samt scope-/UTF-8-/whitespacekontrol af alle 21 ændrede eller nye filer bestod. Alle 46 lokale links i WebSocket-specifikationen (23), handlerdokumentationen (13) og README (10) bestod. Kontrollen er automatisk i hukommelsen uden åbne netværksporte eller fysisk hardware. Ny GitHub-CI og fysisk Oplà-integration er fortsat ikke verificeret.
 
 **Lokal slutkontrol i step 6:** Restore og Release-build bestod med 0 fejl og 0 advarsler. Hele testsuiten bestod med **794 tests**, ingen fejlede eller blev sprunget over. Samlet gennemgang, diff-/scope-/UTF-8-/whitespacekontrol af alle 21 ændrede eller nye filer og dokumentationens 46 lokale links bestod. En separat Kestrel-server i Production blev afprøvet med en rigtig WebSocket-klient på localhost: HTTP uden opgradering gav 400, WebSocket blev accepteret, READY/ROLL/HOLD gav ingen svar eller spilændring uden parring, og 65 tegn lukkede med 1009. Normal lukning og genforbindelse bestod; testserveren blev stoppet, og porten var frigivet. STATE-samspillet er verificeret automatisk med kontrolleret serverparring; ingen fysisk Oplà-test er gennemført. Tidligere steps' miljøafvisninger ovenfor er historiske. CI-resultater og afleveringsstatus dokumenteres i den samlede PR for #63.
+
+**Samlet lobbykontrol i #59 trin 7:** Alle **1.048 tests** består med 0 buildfejl/0 advarsler. Ti nye cases dækker transportafvisning under lobbyspil, fuldt register med rigtige spillerbindinger og ny serverinstans i alle miljøer. En separat lokal Production-server bestod desuden hele tospillerforløbet med HttpClient/ClientWebSocket og den rigtige kodegenerator, inklusive overtagelse og beskyttet tur/nulstilling. Prøveprocessen er stoppet, og porten er frigivet. Krav/test-matrix og resultater står i [lobbydokumentationen](lobby.md). Dette er backendkontrol; fysisk integration i #43 udestår.
 
 Kør fra repositoryets rod:
 
@@ -101,7 +103,7 @@ oplaSocket.onopen = () => oplaSocket.send("READY 0012");
 // Alternativ længdeprøve: oplaSocket.send("x".repeat(65)); // lukker med 1009
 ```
 
-Forvent med standardbehandleren en åben forbindelse uden svar på READY: intet ekko, ingen parringskode og intet STATE. `ROLL` eller `HOLD 1` giver heller intet svar eller spilændring uden parring; serveren logger den manglende adgang. STATE-integrationen afprøves derfor gennem den kontrollerede serverparring i de automatiske tests, indtil #59 er klar. I en ny forbindelse kan 21 hurtige READY-beskeder afprøve lukning med 1008. Bruges USB-browser-broen, er venten på rigtig parring fortsat forventet. Alle miljøer har samme adfærd. De manuelle trin erstatter ikke automatiske tests eller fysisk Oplà-integration.
+Forvent `PAIR cccc` som svar på READY, fx `PAIR 0012`. Gentaget READY på samme forbindelse giver samme kode, også med en anden medsendt kode. [HTTP-join med navn og kode](lobby.md#tilmelding-og-validering) giver JOINED; derefter giver gentaget READY både PAIR og JOINED. Åbn en ny forbindelse, og send den bevarede kode i første READY for at overtage samme tilknytning. Den gamle forbindelse lukkes, og den nye får PAIR samt JOINED, hvis allerede tilmeldt. En ukendt/bortfaldet kode giver en ledig PAIR uden automatisk join. `ROLL` eller `HOLD 1` giver intet svar eller spilændring uden parring eller fra en tilmeldt lobbyspiller; serveren logger afvisningen. STATE-integrationen afprøves fortsat med kontrolleret serverparring i tests. I en ny forbindelse kan 21 hurtige READY-beskeder afprøve lukning med 1008; eventuelle PAIR-svar kommer før lukningen. Browser-broen kan vise koden, men lobbyens brugergrænseflade følger i #60. Alle miljøer har samme adfærd. De manuelle trin erstatter ikke automatiske tests eller fysisk Oplà-integration.
 
 Ekkoet og Development-begrænsningen er fjernet. Der er ingen konfigurationskontakt til ekko eller til at omgå parring.
 
@@ -110,9 +112,9 @@ Ekkoet og Development-begrænsningen er fjernet. Der er ingen konfigurationskont
 | Komponent eller opgave | Ansvar |
 |---|---|
 | [#63 – WebSocket](https://github.com/Bmantaz/H3-Yatzi/issues/63) | Åbner og lukker forbindelser, registrerer en session pr. forbindelse, samler og validerer beskeder, håndhæver grænser og sender svar til den rigtige forbindelse. |
-| [#59 – Lobby og parring](https://github.com/Bmantaz/H3-Yatzi/issues/59) | Tildeler og genkender parringskoder, knytter Oplà til spiller og danner `PAIR cccc` og `JOINED navn`. Ejer også lobbyens HTTP-endpoints. |
+| [#59 – Lobby og parring](https://github.com/Bmantaz/H3-Yatzi/issues/59) | Ejer koder, spillerbinding, lobby-HTTP, genforbindelse, minimal start, identitetskontrol og koordinering af input/svarkø. |
 | [OplaMessageHandler](../backend/Yatzi.Api/OplaMessageHandler.cs) | Behandler accepterede `ROLL`- og `HOLD n`-linjer gennem den eksisterende `GameSession` og returnerer `STATE`. Format, fejl og logging er beskrevet i [handlerdokumentationen](opla-handler.md). |
-| [GameSession](../backend/Yatzi.Api/GameSession.cs) | Ejer den fælles spiltilstand og beskytter spilhandlinger og kopieringen af svar under samme lås. |
+| [GameSession](../backend/Yatzi.Api/GameSession.cs) | Ejer deltagernes spil og kontrollerer Oplà-identitet, handling og svarkopi under samme lås. |
 | [Yatzi.Core.Game](../backend/Yatzi.Core/Game.cs) | Håndhæver reglerne for kast, hold/slip, pointvalg og afslutning af den aktuelle tur. |
 | [#44 – Multiplayer](https://github.com/Bmantaz/H3-Yatzi/issues/44) | Bestemmer aktiv spiller, kontrollerer hvis tur det er, skifter tur, finder vinder og styrer `STATE`, `WAIT` og `END` ved turskifte og afslutning. |
 
@@ -122,7 +124,7 @@ Før step 2 registrerede [Program.cs](../backend/Yatzi.Api/Program.cs) alene spi
 
 ## Dataflow og komponenternes samarbejde
 
-Diagrammets handler- og STATE-forløb er implementeret i step 5. Med standardbehandleren stopper spilkommandoer fortsat ved adgangskontrollen, indtil #59 binder en spiller. Testværten kan kontrollere resten af forløbet med serverintern parring.
+Diagrammet viser den aktuelle integration efter #59 trin 6. Standardforløbet bruger rigtig HTTP-join og lobbystart; kun første spillers aktuelle forbindelse kan udføre spilhandlinger. HTTP og Oplà bruger samme GameSession.
 
 ```text
 Oplà → USB/Web Serial → browser-bro → WSS /ws/opla
@@ -134,11 +136,15 @@ Oplà → USB/Web Serial → browser-bro → WSS /ws/opla
                          ├─ READY [kode] → grænsen til #59
                          └─ øvrig linje → adgangskontrol
                                            ↓
+                         LobbySession: genkontrol og koordinering
+                                           ↓
                                 OplaMessageHandler
                                            ↓
                              GameSession → Yatzi.Core.Game
                                            ↓
                                 kopieret spiltilstand
+                                           ↓
+                              lobbyens ordnede svarbatch
                                            ↓
                          STATE → samme WebSocket → Oplà
 ```
@@ -147,7 +153,7 @@ Browser-broen transporterer tekstlinjer. Serveren læser ikke en USB-port. Direk
 
 Transportlaget registrerer forbindelsesstatus og kontrollerer adgang før et handlerkald. Handleren bestemmer spilhandlingen og danner svaret. Hverken en transportfejl, et `READY` eller en genforbindelse opretter eller nulstiller et spil.
 
-Parring er en nødvendig adgangsbetingelse, men afgør ikke, hvis tur det er. Spillerens identitet skal følge forbindelsen, så #44 senere kan afvise en anden spillers handlinger før udførelse. #63 indfører ikke turskifte eller multiplayer i den nuværende kerne.
+Parring er nødvendig, men afgør ikke turen alene. Trin 6 af #59 fører identiteten gennem handleren til GameSession, som afviser øvrige spillere under samme lås som handlingen. Første deltager er aktiv; næste tur og turskifte følger i #44. #63 indførte oprindeligt transporten uden multiplayerregler.
 
 ## Forbindelsestilstande og adgang
 
@@ -157,7 +163,7 @@ Hver forbindelse får et servergenereret `ConnectionId`, som ikke er parringskod
 |---|---|---|
 | **Ny forbindelse** | WebSocket-forbindelsen er accepteret og registreret. | Ingen. |
 | **READY modtaget** | Serveren har modtaget præcis `READY` eller `READY cccc`, hvor `cccc` er fire ASCII-cifre. | Ingen; en medsendt kode er endnu ikke valideret. |
-| **Parret** | Serverens parringslogik har knyttet en spiller til en åben forbindelse, der har sendt READY. | Linjer kan gå videre til handleren; spilregler og den senere turkontrol gælder stadig. |
+| **Parret** | Serverens parringslogik har knyttet en spiller til en åben forbindelse efter READY. | Lobbyspillere kræver start, aktuel forbindelse og første deltagers identitet; kernens turregler gælder. |
 | **Lukket** | Normal lukning, afbrudt forbindelse, serverstop eller lukning efter en overskredet grænse. | Ingen; sessionen fjernes fra registeret. |
 
 Det normale forløb er `Ny forbindelse → READY modtaget → Parret → Lukket`. Forbindelsen kan også lukkes fra de to første tilstande. En lukket session genbruges ikke.
@@ -172,17 +178,18 @@ Det normale forløb er `Ny forbindelse → READY modtaget → Parret → Lukket`
 
 En genforbindelse får et nyt `ConnectionId` og starter som **Ny forbindelse**. `READY 4821` er en anmodning om, at #59 genkender koden; teksten er ikke i sig selv dokumentation for parring. Kun #59 kan genetablere spillerbindingen på den nye forbindelse.
 
-Transportregisteret fjerner den gamle forbindelse og dens adgang. #59 ejer den logiske kode/spillerrelation, der senere skal kunne overleve et kort forbindelsesudfald. En sen oprydning af den gamle forbindelse må ikke fjerne en binding på en nyere forbindelse. Der flyttes eller genafspilles ingen tidligere spilkommandoer.
+Transportregisteret tilbagekalder den gamle adgang; endpointet fjerner forbindelsen efter lukning og disposal. #59 bevarer den logiske kode/spillerrelation på tværs af udfald. En sen oprydning af den gamle forbindelse må ikke fjerne en binding på en nyere forbindelse. Der flyttes eller genafspilles ingen tidligere spilkommandoer.
 
 ## Serverinterne integrationsgrænser
 
-Transportens serverinterne operationer er implementeret i step 4. De opretter ingen nye HTTP-ruter eller klientkommandoer. Den rigtige lobbyimplementering af READY følger i #59:
+Transportens oprindelige serveroperationer er implementeret i #63 step 4, og #59 trin 4 tilføjer atomisk overtagelse. Operationerne opretter ingen nye HTTP-ruter eller klientkommandoer:
 
 | Operation | Input og ansvar | Forventet resultat |
 |---|---|---|
 | **Registrér READY: `TryMarkReady(Guid)`** | Endpointet leverer `ConnectionId` efter syntakskontrollen. | Connected bliver Ready. Ready/Paired bevares; manglende, reserveret eller lukket session giver false. |
-| **Modtag READY: `IOplaReadyHandler.HandleReadyAsync(Guid, string?, CancellationToken)`** | #63 leverer `ConnectionId`, eventuel firecifret kode og annullering efter registrering af READY. Null betyder ingen kode; foranstillede nuller bevares. | Standarden gør intet. #59 kan senere genkende eller tildele kode og sende det relevante svar. READY alene giver ingen binding. |
+| **Modtag READY: `IOplaReadyHandler.HandleReadyAsync(Guid, string?, CancellationToken)`** | #63 leverer `ConnectionId`, eventuel firecifret kode og annullering efter registrering af READY. Null betyder ingen kode; foranstillede nuller bevares. | LobbySession tildeler/genbruger en kode eller genfinder en kendt tilknytning på en ny forbindelse. Kun en allerede tilmeldt spiller får binding ved genforbindelse; en ny kode giver ingen adgang. |
 | **Knyt spiller: `TryBindPlayer(Guid, Guid)`** | #59 leverer `ConnectionId` og servervalideret `PlayerId`. | Åben session efter READY kræves. Tomt id eller en anden eksisterende binding afvises. Gentaget identisk binding lykkes. |
+| **Overtag: `TryTakeOver(Guid, Guid, Guid, out OplaConnection?)`** | Lobbyen leverer gammel og ny forbindelse samt bevaret PlayerId; Guid.Empty betyder ubrugt kode. | Validerer ny READY-modtager, binder eventuel spiller og tilbagekalder gammel adgang atomisk. En ubrugt kode kræver åben READY-kilde. Den konkrete gamle forbindelse returneres til lukning uden registerlåsen og fjernes ikke her. |
 | **Læs adgang: `TryGetPlayerId(Guid, out Guid)`** | Transporten leverer `ConnectionId`. | Kun en registreret, åben, parret forbindelse giver true og spiller-id; ellers false og Guid.Empty. |
 | **Send: `SendAsync(Guid, string, CancellationToken)`** | #59 eller #44 leverer `ConnectionId`, én svarlinje uden linjeskift og annullering. | Sendes gennem sessionens fælles afsendelsesvej til præcis modtageren. Manglende eller lukket session giver false. |
 | **Fjern: `Remove(Guid)`** | Endpointet frigiver pladsen efter acceptfejl eller afsluttet oprydning. | Bindingen tilbagekaldes også på gamle referencer; pladsen frigives præcis én gang. Metoden udfører intet netværksarbejde. |
@@ -193,11 +200,11 @@ Alle afsendelser til samme WebSocket, også fremtidige beskeder fra lobbyen og t
 
 ### Tilkobling til den eksisterende handler
 
-Denne tilkobling er implementeret i step 5. Efter formatkontrol og adgangskontrol leveres én komplet linje til `OplaMessageHandler.HandleLine(string? line)`. Der oprettes ikke en ny `GameSession` eller en separat handler med et andet spil pr. forbindelse.
+Den oprindelige tilkobling fra #63 step 5 er udvidet i #59 trin 6 med spilleridentitet og lobbyens koordinering. Efter format- og adgangskontrol leveres én komplet linje til `OplaMessageHandler.HandleLine(line, playerId, cancellationToken)`. Der oprettes ikke en separat GameSession pr. forbindelse.
 
 - Linjen trimmes ikke, og store/små bogstaver ændres ikke. `ROLL ` bliver derfor ikke til et gyldigt `ROLL`.
 - `READY` behandles ved grænsen til #59 og sendes ikke til spilhandleren. Debug ignoreres som beskrevet ovenfor.
-- Øvrige linjer fra en parret forbindelse sendes til handleren. Den genkender `ROLL` og `HOLD 1`–`HOLD 5` og afviser ukendte kommandoer efter sin eksisterende kontrakt.
+- Øvrige linjer kræver parring. Lobbyspillere kræver også start og korrekt aktuel forbindelse; GameSession kræver første deltagers id. Handleren genkender præcis ROLL og HOLD 1–5. Kontrolleret serverbinding uden lobbytilknytning bevarer enkeltspillerintegration i tests.
 - Hver returneret svarlinje sendes som en separat WebSocket-tekstbesked til den samme forbindelse. En tom svarliste giver ingen afsendelse eller ekstra spilopslag.
 - Handlerens synkrone spilhandling og kopieringen af tilstanden afsluttes, før transporten afventer netværksafsendelse. Et sendesvigt ruller ikke et allerede accepteret kast tilbage, og transporten gentager ikke kommandoen.
 
@@ -228,16 +235,20 @@ Transportlaget logger egne afvisninger på Warning-niveau med `ConnectionId`, å
 
 Normal lukning, kabeludfald via browser-broen, netværksfejl og serverens annullering skal alle ende i samme oprydning. Sessionen fjernes, videre adgang afvises, og pladsen frigives. Lukning og netværksafsendelse udføres uden for den fælles spilsessions lås. En lukkeoperation må ikke vente ubegrænset på modparten; senest efter fem sekunder afbrydes forbindelsen, og oprydningen afsluttes.
 
-## Adfærd indtil lobbyen er implementeret
+## Aktuelt lobbyforløb
 
-#63 kan implementeres og automatisk testes før #59. Standardforløbet i alle miljøer er:
+Efter trin 6 af #59 er standardforløbet i alle miljøer:
 
 1. Oplà-forbindelsen accepteres og får sin egen session.
-2. Et gyldigt READY registreres. Der tildeles ingen rigtig kode og sendes intet `PAIR` eller `JOINED`, så længe #59 ikke er tilkoblet.
-3. Spilkommandoer forbliver afvist, fordi forbindelsen ikke er parret.
-4. Gentaget READY giver ikke adgang eller ekstra sessioner.
+2. Et gyldigt READY registreres, og LobbySession svarer med `PAIR cccc` uden spillerbinding.
+3. HTTP-join validerer navn/kode, binder spiller-id og sender JOINED. Lobbylæsning viser deltageren og dens aktuelle forbindelsesstatus.
+4. Gentaget READY giver samme PAIR-kode og derefter JOINED, hvis tilmeldt. En ny forbindelse med kendt kode overtager tilknytningen; gammel adgang tilbagekaldes straks, og gammel lukning afventes parallelt med den nye afsendelse. Uden kendt kode udstedes en ledig PAIR.
+5. `POST /api/lobby/start` opretter 1–6 deltagere, sender STATE til første spiller og WAIT til resten og beskytter spillet mod `/api/game/new`. READY efter start tilføjer aktuel STATE/WAIT efter PAIR og JOINED.
+6. Første spillers aktuelle Oplà kan kaste/holde; øvrige deltagere afvises uden svar. Spillerkontrol og handling udføres under samme sessionslås. Tilmeldte koder og spiltilstand bevares ved genforbindelse uden nyt join eller genafspilning.
 
-Kontrolleret testparring passerer adgangskontrollen og kan udføre handlinger gennem den eksisterende handler. Et spil skal være oprettet, og kernens regler gælder stadig. Produktionsserverens standardbehandler parrer ingen forbindelse, før #59 er tilkoblet.
+Kontrolleret testparring bevarer selvstændig enkeltspillerintegration. Produktionsserveren binder lobbyspillere gennem HTTP-join; før start kan de ikke ændre et eksisterende enkeltspillerspil. Et afsluttet lobbyfeltvalg låser stadig turen uden næste spiller.
+
+Den manuelle prøve kan efter start sende ROLL fra første spiller og forvente STATE 1 00000, derefter HOLD 2 og STATE 1 01000. Samme kommandoer fra øvrige spillere skal hverken give svar eller ændre GET /api/game. Genforbind med første spillers kode: forvent PAIR, JOINED og STATE 1 01000 uden ekstra kast; næste HOLD 2 slipper terningen. Øvrige spillere får WAIT. Fysisk ryst/touch, USB/WiFi og tunnel verificeres fortsat i #43; næste tur følger i #44.
 
 Automatiske tests kan bruge testværtens servicecontainer til kontrolleret serverintern parring og en testimplementering af READY-behandlingen. Det kræver hverken fysisk hardware eller en offentlig testkommando. Produktionsklienten får ikke adgang til denne testopsætning. Den firecifrede kode er parring og indfører ikke et login- eller JWT-system.
 
@@ -247,7 +258,7 @@ Den tidlige ekko-udgave fra step 2–3 er fjernet. Den kaldte ikke spilhandleren
 
 ## Kontrolscenarier til step 2–6
 
-Følgende er acceptscenarier for hele #63. Transport, tegn-/rategrænser, linjeformat, READY, serverbinding, adgangskontrol, handler-/STATE-integration og miljøadfærd har automatiske tests og lokal slutkontrol som beskrevet øverst. Rigtig lobbyparring i #59 og fysisk integration er stadig udestående. Afleveringen af #63 kræver desuden merge og grøn CI på main; tabellen dokumenterer ikke disse udeståender:
+Følgende er acceptscenarier for hele #63. Transport, tegn-/rategrænser, linjeformat, READY, serverbinding, adgangskontrol, handler-/STATE-integration og miljøadfærd har automatiske tests og lokal slutkontrol som beskrevet øverst. Den samlede #59 og fysisk integration er stadig udestående. Afleveringsstatus for #63 dokumenteres i PR #80; tabellen alene dokumenterer ikke merge eller CI:
 
 | Scenarie | Forventet resultat |
 |---|---|

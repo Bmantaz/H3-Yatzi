@@ -138,6 +138,11 @@ public sealed class OplaConnection
             _logger.LogWarning("Oplà-forbindelsen {ConnectionId} mistede transporten under lukning.", ConnectionId);
             _socket.Abort();
         }
+        catch (ObjectDisposedException) when (_socket.State is WebSocketState.Closed or WebSocketState.Aborted)
+        {
+            // Serverinitieret lukning kan afsluttes af den allerede ventende
+            // ReceiveAsync. En terminal socket kræver ikke et nyt lukkehåndtryk.
+        }
         finally
         {
             if (lockTaken) _sendLock.Release();

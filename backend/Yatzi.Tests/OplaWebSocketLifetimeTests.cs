@@ -362,8 +362,11 @@ public class OplaWebSocketLifetimeTests
     }
 
     private static Task HandleAsync(HttpContext context, OplaConnectionRegistry registry,
-        TestApplicationLifetime lifetime, TimeProvider? timeProvider = null, IOplaReadyHandler? readyHandler = null) =>
-        OplaWebSocketEndpoints.HandleAsync(context, registry, lifetime,
-            NullLoggerFactory.Instance, timeProvider ?? TimeProvider.System, readyHandler ?? new PendingOplaReadyHandler(),
-            new OplaMessageHandler(new GameSession(), NullLogger<OplaMessageHandler>.Instance));
+        TestApplicationLifetime lifetime, TimeProvider? timeProvider = null, IOplaReadyHandler? readyHandler = null)
+    {
+        var gameSession = new GameSession();
+        return OplaWebSocketEndpoints.HandleAsync(context, registry, lifetime,
+            NullLoggerFactory.Instance, timeProvider ?? TimeProvider.System, readyHandler ?? new RecordingReadyHandler(),
+            new OplaMessageHandler(gameSession, NullLogger<OplaMessageHandler>.Instance), new LobbySession(registry, gameSession));
+    }
 }
