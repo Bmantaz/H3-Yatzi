@@ -35,7 +35,8 @@ jobs:
 
   arduino:
     name: Arduino – compile sketch (MKR WiFi 1010)
-    runs-on: ubuntu-latest
+    # compile-sketches bruger Python 3.12.4, som findes til 24.04, men ikke 26.04.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
