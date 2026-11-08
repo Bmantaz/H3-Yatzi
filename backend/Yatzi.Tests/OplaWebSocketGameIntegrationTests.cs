@@ -506,7 +506,7 @@ public class OplaWebSocketGameIntegrationTests : IDisposable
         context.Features.Set<IHttpWebSocketFeature>(new TestWebSocketFeature(() => Task.FromResult<WebSocket>(socket)));
         return OplaWebSocketEndpoints.HandleAsync(context, Registry, lifetime,
             _factory.Services.GetRequiredService<ILoggerFactory>(), _clock, _ready,
-            _factory.Services.GetRequiredService<OplaMessageHandler>());
+            _factory.Services.GetRequiredService<OplaMessageHandler>(), _factory.Services.GetRequiredService<LobbySession>());
     }
 
     public void Dispose()

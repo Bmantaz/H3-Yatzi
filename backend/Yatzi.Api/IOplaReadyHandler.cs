@@ -15,16 +15,3 @@ public interface IOplaReadyHandler
     /// </summary>
     Task HandleReadyAsync(Guid connectionId, string? code, CancellationToken cancellationToken);
 }
-
-/// <summary>
-/// Midlertidig, statsløs standard indtil #59 implementerer rigtig parring.
-/// Udsteder ingen kode, binder ingen spiller og sender intet svar.
-/// </summary>
-public sealed class PendingOplaReadyHandler : IOplaReadyHandler
-{
-    public Task HandleReadyAsync(Guid connectionId, string? code, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.CompletedTask;
-    }
-}

@@ -11,6 +11,7 @@ Mellemprojekt: et digitalt Yatzy-spil, hvor **Arduino Oplà** (MKR WiFi 1010) br
 - 🧮 [Pointregler og point-API](docs/scoring.md) – alle 15 felter, bonus, strygning og turafslutning
 - 🎲 [Oplà-beskedhåndtering](docs/opla-handler.md) – ROLL/HOLD, STATE-svar, fælles spilsession og tests
 - 🔗 [WebSocket til Oplà](docs/opla-websocket.md) – forbindelser, READY/adgang, beskedgrænser og handlerintegration i #63
+- 🔑 [Lobby og parring](docs/lobby.md) – parring, GET/join, genforbindelse, start og spillerkontrolleret ROLL/HOLD
 
 ## Struktur
 
@@ -28,7 +29,9 @@ Backendens terningelogik, alle 15 pointfelter, bonus, pointtavle, de seks spil-e
 
 Ved slutkontrollen af #40 bestod 612 tests og Release-build med 0 fejl og 0 advarsler. Afleveringsstatus og CI for den opgave dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76).
 
-`/ws/opla` fungerer med samme forbindelser, READY/adgangskontrol, ressourcegrænser og ROLL/HOLD gennem handleren i alle miljøer. Handleren og HTTP deler spilsession, og STATE sendes kun til afsenderen. Standardens READY-behandler giver ingen parring eller kode; rigtig lobbyparring følger i #59, og integrationen afprøves med kontrolleret serverparring i tests. Lokal slutkontrol bestod med 0 buildfejl, 0 advarsler og **794 beståede tests**. En separat lokal Production-server bestod transportprøven med en rigtig WebSocket-klient. Afleveringsstatus, merge og CI for #63 dokumenteres i [PR #80](https://github.com/Bmantaz/H3-Yatzi/pull/80); opgavens færdigkrav er merge og grøn CI på main. Turskifte og multiplayer følger i #44. Den samlede fysiske forbindelse mellem Oplà, browser, server og frontend er endnu ikke verificeret.
+`/ws/opla` fungerer med samme forbindelser, READY/adgangskontrol og ressourcegrænser i alle miljøer. READY giver PAIR, og HTTP-join binder spilleren og sender JOINED. GET /api/lobby viser deltagere og forbindelsesstatus. En ny forbindelse med kendt kode overtager samme spiller uden nyt join; gammel adgang tilbagekaldes straks. Start opretter 1–6 deltagere med egne pointtavler, STATE til første spiller og WAIT til resten. READY genskaber aktuel status. Efter trin 6 af #59 kan første spillers aktuelle Oplà kaste/holde, og øvrige spillere afvises. Spillerkontrol og handling udføres under samme GameSession-lås; svar går gennem lobbyens ordnede kø. HTTP påvirker fortsat første deltager, og /api/game/new kan ikke overskrive lobbyspillet.
+
+Ved slutkontrollen af #63 bestod 0 buildfejl, 0 advarsler og **794 tests**. En separat lokal Production-server bestod dengang transportprøven med en rigtig WebSocket-klient. Afleveringsstatus, merge og CI for #63 dokumenteres i [PR #80](https://github.com/Bmantaz/H3-Yatzi/pull/80). Kontrollen af #59 trin 2 bestod med **814 tests**, trin 3 med **889**, trin 4 med **946** og trin 5 med **993**. Kontrollen af trin 6 bestod med **1.038 tests**. Trin 7 bestod med **1.048 tests** og en separat lokal Production-prøve med to spillere og genforbindelse. Slutreviewet i trin 8 rettede ugyldige Unicode-escapes i lobbyinput og består med **1.052 tests**, 0 buildfejl/0 advarsler og en genkørt Production-prøve. Leverancen findes i [PR #81](https://github.com/Bmantaz/H3-Yatzi/pull/81), som dokumenterer merge-status, verificerede commits og CI før/efter merge. Første grønne PR-CI på 4fe624c bestod backend og Arduino. Færdigkriteriet for #59 er merge og grøn CI på main. Turskifte følger i #44. Fysisk Oplà-, browser-, server- og frontendintegration er endnu ikke verificeret.
 
 ## Kom i gang
 
@@ -39,7 +42,7 @@ dotnet run --project backend/Yatzi.Api   # åbn http://localhost:5000
 dotnet test                              # kør tests
 ```
 
-`/ws/opla` fungerer i alle miljøer. Almindelig HTTP uden WebSocket-opgradering giver 400; fuldt forbindelsesregister giver 503. READY giver med standardbehandleren intet svar, og ROLL/HOLD afvises uden serverparring; se WebSocket-specifikationens test- og kørevejledning.
+`/ws/opla` fungerer i alle miljøer. Almindelig HTTP uden WebSocket-opgradering giver 400; fuldt forbindelsesregister giver 503. READY giver `PAIR cccc`; join med navn og kode sender JOINED. ROLL/HOLD afvises både uden parring og fra lobbyens tilmeldte spillere, indtil lobbyspillet integreres. Se [lobbykontrakten](docs/lobby.md) og WebSocket-specifikationens test- og kørevejledning.
 
 Arduino: åbn `arduino/yatzi_controller/yatzi_controller.ino`, vælg board *Arduino MKR WiFi 1010* og upload.
 

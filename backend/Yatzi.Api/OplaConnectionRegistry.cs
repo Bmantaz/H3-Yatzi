@@ -80,6 +80,48 @@ public sealed class OplaConnectionRegistry
                 && connection is not null && connection.TryBindPlayer(playerId);
     }
 
+    /// <summary>
+    /// Overfører lobbyens tilknytning til en ny READY-forbindelse og tilbagekalder
+    /// gammel adgang atomisk for registerets brugere. Guid.Empty betyder en ubrugt
+    /// kode; da skal den gamle forbindelse stadig være åben og READY. En tilmeldt
+    /// spillers gamle forbindelse må være lukket eller fjernet.
+    /// </summary>
+    /// <param name="oldConnectionId">Kodepostens hidtidige transport-id.</param>
+    /// <param name="newConnectionId">Ny accepteret READY-forbindelse uden spillerbinding.</param>
+    /// <param name="playerId">Lobbyens bevarede spiller-id eller Guid.Empty før join.</param>
+    /// <param name="replaced">Den konkrete gamle forbindelse, som kalderen lukker uden lås.</param>
+    /// <remarks>
+    /// Kaldes under lobbylåsen: lobby → register → forbindelsestilstand. Starter
+    /// ingen I/O og frigiver ingen registerplads; endpointet ejer fortsat oprydning.
+    /// Ved afvisning ændres hverken gammel eller ny binding.
+    /// </remarks>
+    public OplaTakeoverStatus TryTakeOver(Guid oldConnectionId, Guid newConnectionId, Guid playerId,
+        out OplaConnection? replaced)
+    {
+        lock (_sync)
+        {
+            replaced = null;
+            if (oldConnectionId == newConnectionId
+                || !_connections.TryGetValue(newConnectionId, out var target) || target is null
+                || target.IsClosing || target.State != OplaConnectionState.Ready)
+                return OplaTakeoverStatus.TargetUnavailable;
+
+            _connections.TryGetValue(oldConnectionId, out var source);
+            if (playerId == Guid.Empty && (source is null || source.IsClosing
+                || source.State != OplaConnectionState.Ready))
+                return OplaTakeoverStatus.SourceUnavailable;
+
+            // Bindingen kan fejle, hvis modtageren lukkes efter tilstandsopslaget.
+            // Den gamle forbindelse må først tilbagekaldes efter denne kontrol.
+            if (playerId != Guid.Empty && !target.TryBindPlayer(playerId))
+                return OplaTakeoverStatus.TargetUnavailable;
+
+            source?.MarkClosed();
+            replaced = source;
+            return OplaTakeoverStatus.TakenOver;
+        }
+    }
+
     /// <summary>Læsbar adgangskontrol: kun en registreret, åben, parret session giver et spiller-id.</summary>
     public bool TryGetPlayerId(Guid connectionId, out Guid playerId)
     {
@@ -116,3 +158,6 @@ public sealed class OplaConnectionRegistry
         }
     }
 }
+
+/// <summary>Skelner mellem en bortfaldet ubrugt kode og en ugyldig ny modtager.</summary>
+public enum OplaTakeoverStatus { TakenOver, SourceUnavailable, TargetUnavailable }
