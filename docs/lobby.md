@@ -2,13 +2,13 @@
 
 Denne specifikation beskriver den aftalte løsning til [#59 – Lobby og parring i backend](https://github.com/Bmantaz/H3-Yatzi/issues/59). Den fastlægger API-kontrakten til Frederiks lobby i #60, forbindelsen til WebSocket-transporten fra #63 og den interne rækkefølge for implementeringen.
 
-**Aktuel status: trin 1–8 er gennemført, og leverancen er afleveret til review i [PR #81](https://github.com/Bmantaz/H3-Yatzi/pull/81).** READY/PAIR, GET/join, genforbindelse og spillestart for 1–6 deltagere fungerer. Første spillers aktuelle Oplà kan kaste og holde efter start; øvrige spillere afvises. STATE/WAIT genskabes ved READY, og `/api/game/new` kan ikke overskrive lobbyspillet. PR'en er åben; #59 er først afsluttet efter merge og grøn CI på main. Turskifte og næste tur følger i #44.
+**Implementeret funktionalitet: trin 1–8 er gennemført.** Leverancen og dens merge-/CI-status dokumenteres i [PR #81](https://github.com/Bmantaz/H3-Yatzi/pull/81). READY/PAIR, GET/join, genforbindelse og spillestart for 1–6 deltagere fungerer. Første spillers aktuelle Oplà kan kaste og holde efter start; øvrige spillere afvises. STATE/WAIT genskabes ved READY, og `/api/game/new` kan ikke overskrive lobbyspillet. Færdigkriteriet for #59 er merge og grøn CI på main. Turskifte og næste tur følger i #44.
 
 ## Grundlag og afgrænsning
 
-- **Kontrolleret 8. november 2026:** #59 er åben og tildelt Andreas. Afhængighederne #36 og #63 er lukkede. Der er ingen tekniske blokeringer for at begynde.
+- **Grundlag før implementering, kontrolleret 8. november 2026:** #59 var åben og tildelt Andreas. Afhængighederne #36 og #63 var lukkede, og der var ingen tekniske blokeringer for at begynde.
 - Lokal `main`, `origin/main` og GitHubs `main` pegede ved branchoprettelsen på `10c692fa42943ddce2a5840568713a6f61b2d2c7`. Arbejdstræet var rent.
-- Arbejdsbranchen er `S2-9-lobby-parring`, oprettet fra denne `main`. Alle trin samles på denne branch og senere i én PR med `Closes #59`.
+- Arbejdsbranchen er `S2-9-lobby-parring`, oprettet fra denne `main`. Alle trin er leveret gennem PR #81 med `Closes #59`.
 - #59 omfatter parring, tilmelding, lobbylæsning og minimal spillestart for 1–6 spillere. Efter aftale oprettes alle deltagere og deres pointtavler her, og kun første spillers Oplà får adgang til spilhandlinger.
 - Ved genforbindelse overtager den nye forbindelse fra den gamle. Dette er også det valgte grundlag for et senere skift mellem USB og WiFi.
 - #44 tilføjer næste tur, turskifte, spillets afslutning, vinder og ny lobby eller nyt spil efter afslutning. #60 tilføjer frontendens lobby. #43 står for den samlede fysiske integrationstest. Direkte WiFi følger i #53/#54.
@@ -139,7 +139,7 @@ Featurecommitten er `b348c16e4c206bdd6cfafa4f15bfa2a20e1da98f`. Første CI-kørs
 
 En efterfølgende CI-kørsel afslørede en timingafhængig assertion i starttesten: JOINED kunne stadig være sidste besked, når WAIT blev kontrolleret. Testcommit `4fe624c` tilføjer et eksplicit afsendelsessignal uden at fjerne assertions eller ændre produktionsadfærd. De 31 berørte start-/spilinputtests bestod tre lokale gentagelser, og hele den lokale suite bestod igen med 1.052 tests.
 
-**Verificeret første grønne PR-hoved:** [CI-kørsel 42498725499](https://github.com/Bmantaz/H3-Yatzi/actions/runs/42498725499) på `4fe624c9f5139be5a9e5cb6d798db03e51254eb9` bestod backend med 0 buildfejl/0 advarsler og 1.052 beståede tests samt Arduino-kompilering til MKR WiFi 1010. GitGuardian bestod også. Trin 8 er markeret efter denne kontrol. CI for denne efterfølgende afleveringsdokumentation kontrolleres på det nye PR-hoved og dokumenteres med præcis SHA og links i PR-beskrivelsen. Issue #59 forbliver åbent indtil senere merge og grøn CI på main.
+**Verificeret første grønne PR-hoved:** [CI-kørsel 42498725499](https://github.com/Bmantaz/H3-Yatzi/actions/runs/42498725499) på `4fe624c9f5139be5a9e5cb6d798db03e51254eb9` bestod backend med 0 buildfejl/0 advarsler og 1.052 beståede tests samt Arduino-kompilering til MKR WiFi 1010. GitGuardian bestod også. Trin 8 er markeret efter denne kontrol. Senere PR-CI og CI på merge-committen dokumenteres med præcis SHA og links i PR-beskrivelsen. Den første grønne PR-kørsel ovenfor bevares som historik; opgavens færdigkriterium kræver også merge og grøn CI på main.
 
 ## Ansvar og dataflow
 
@@ -296,7 +296,7 @@ Vi implementerer kun ét aftalt trin ad gangen. Hvert trin afsluttes med relevan
 
 ## Kontrolscenarier og aflevering
 
-Følgende er acceptscenarier for hele #59. Funktionaliteten er implementeret i trin 2–6. Trin 7 samler dækningen i krav/test-matrixen og kontrollerer transportafvisning, kapacitet, ny serverinstans og en separat Production-server. Reviewleverancen i trin 8 er afleveret i PR #81; merge og grøn CI på main udestår:
+Følgende er acceptscenarier for hele #59. Funktionaliteten er implementeret i trin 2–6. Trin 7 samler dækningen i krav/test-matrixen og kontrollerer transportafvisning, kapacitet, ny serverinstans og en separat Production-server. Reviewleverancen i trin 8 findes i PR #81, som også dokumenterer merge og CI på main:
 
 | Område | Scenarier |
 |---|---|
@@ -324,7 +324,7 @@ Følgende er acceptscenarier for hele #59. Funktionaliteten er implementeret i t
 
 **Kontrol af trin 7 (historisk):** Restore bestod, Release-build gav **0 fejl og 0 advarsler**, og hele testsuiten bestod med **1.048 tests**, ingen fejlede eller blev sprunget over. TRX bekræfter 1.048 udførte/beståede og 0 fejlede/ikke udførte. Trin 7 tilføjer 10 integrationstestcases. Den separate Production-prøve med rigtig Kestrel, standardregistreringer og HttpClient/ClientWebSocket bestod; kun prøveprocessen blev stoppet, og porten blev frigivet. Krav/test-matrix, kommentarer og testkode er gennemgået. Diff-, scope-, streng UTF-8- og whitespacekontrol består for alle 34 nye/ændrede tekstfiler fra trin 1–7 samt den forventede sletning fra trin 2. Alle 17 JSON-eksempler og 135 lokale Markdown-links inklusive ankre består. Hashkontrol mod starten af trin 7 bekræfter, at kun den nye integrationstestfil, transporttestens kommentar/navn og fire dokumentationsfiler er ændret; produktionskode, kontrakter, konfiguration og pakker er uændrede. Ændringerne er lokale uden staging, commit, push eller PR. Trin 8 er ikke påbegyndt; fysisk integration i #43 og turskifte/livscyklus i #44 udestår.
 
-**Kontrol af trin 8:** Hele leverancen og den staged diff er gennemgået, inklusive nye filer og den forventede sletning. Lokal restore og Release-build består med 0 fejl/0 advarsler og 1.052 beståede tests; den separate Production-prøve er genkørt efter valideringsrettelsen. Scope, streng UTF-8, whitespace, alle 17 JSON-eksempler og 137 lokale dokumentationslinks består for 35 nye/ændrede tekstfiler samt én forventet sletning. Testartefakter er udeladt fra Git. Feature-, runner- og testsynkroniseringscommits er pushet til PR #81; første samlede grønne CI er verificeret på 4fe624c som beskrevet ovenfor. CI på denne dokumentationscommit dokumenteres i PR-beskrivelsen. Alle interne trin er afsluttet som reviewleverance. Ingen merge er udført, og #59 er fortsat åben.
+**Kontrol af trin 8 (historisk, før merge):** Hele leverancen og den staged diff er gennemgået, inklusive nye filer og den forventede sletning. Lokal restore og Release-build består med 0 fejl/0 advarsler og 1.052 beståede tests; den separate Production-prøve er genkørt efter valideringsrettelsen. Scope, streng UTF-8, whitespace, alle 17 JSON-eksempler og 137 lokale dokumentationslinks består for 35 nye/ændrede tekstfiler samt én forventet sletning. Testartefakter er udeladt fra Git. Feature-, runner- og testsynkroniseringscommits er pushet til PR #81; første samlede grønne CI er verificeret på 4fe624c som beskrevet ovenfor. CI på denne dokumentationscommit dokumenteres i PR-beskrivelsen. Alle interne trin er afsluttet som reviewleverance. Ingen merge er udført, og #59 er fortsat åben.
 
 Ved kodetrinene køres relevante tests, og ved samlet slutkontrol køres hele løsningen. Ingen test markeres bestået, før den er kørt med den relevante implementering.
 
