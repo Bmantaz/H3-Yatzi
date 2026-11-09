@@ -99,7 +99,7 @@ const CATEGORIES = [
 ];
 
 const el = {
-  lobbyScreen: document.getElementById("lobby-screen"),
+  lobbyScreen: document.getElementById("start-screen"),
   joinForm: document.getElementById("join-form"),
   nameInput: document.getElementById("player-name"),
   codeInput: document.getElementById("opla-code"),
