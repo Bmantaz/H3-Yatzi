@@ -28,7 +28,7 @@
       </div>
     </section>
 
-    <!-- Spilskærm: terninger og "Slag x/3" (S1.8). Pointtavlen kommer i S2.6. -->
+    <!-- Spilskærm: terninger, "Slag x/3" og pointtavle -->
     <section id="game-screen" class="card" hidden>
       <p id="turn" class="turn"></p>
 
@@ -40,6 +40,10 @@
         <button id="roll-btn" type="button" class="btn btn-primary">Kast</button>
         <button id="new-game-btn" type="button" class="btn">Nyt spil</button>
         <p class="hint">Ryst Oplaen for at kaste (knappen er reserve).<br>Klik på en terning (eller touch 1-5) for at holde den.</p>
+      </div>
+
+      <div class="scoreboard-wrap">
+        <table id="scoreboard" class="scoreboard" aria-label="Pointtavle"></table>
       </div>
     </section>
 

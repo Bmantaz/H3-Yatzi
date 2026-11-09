@@ -52,7 +52,30 @@ const api = {
   toggleHold(index) {
     return request(`/api/game/hold/${index + 1}`, { method: "POST" });
   },
+
+  score(category) {
+    return request(`/api/game/score/${category}`, { method: "POST" });
+  },
 };
+
+// Felt-id'erne fra docs/api.md i den rækkefølge de står på pointtavlen
+const CATEGORIES = [
+  ["ones", "1'ere"],
+  ["twos", "2'ere"],
+  ["threes", "3'ere"],
+  ["fours", "4'ere"],
+  ["fives", "5'ere"],
+  ["sixes", "6'ere"],
+  ["onePair", "1 par"],
+  ["twoPairs", "2 par"],
+  ["threeOfAKind", "3 ens"],
+  ["fourOfAKind", "4 ens"],
+  ["smallStraight", "Lille straight"],
+  ["largeStraight", "Stor straight"],
+  ["fullHouse", "Hus"],
+  ["chance", "Chance"],
+  ["yatzy", "Yatzy"],
+];
 
 const el = {
   startScreen: document.getElementById("start-screen"),
@@ -64,6 +87,7 @@ const el = {
   rollCount: document.getElementById("roll-count"),
   rollBtn: document.getElementById("roll-btn"),
   newGameBtn: document.getElementById("new-game-btn"),
+  scoreboard: document.getElementById("scoreboard"),
   message: document.getElementById("message"),
 };
 
@@ -133,6 +157,70 @@ function render(state) {
   } else if (state.rollsUsed >= MAX_ROLLS) {
     showMessage("Alle slag er brugt. Vælg et felt på pointtavlen.");
   }
+
+  renderScoreboard(state);
+}
+
+function cell(tag, text, className) {
+  const c = document.createElement(tag);
+  c.textContent = text;
+  if (className) c.className = className;
+  return c;
+}
+
+function renderScoreboard(state) {
+  const table = el.scoreboard;
+  table.replaceChildren();
+
+  const current = state.currentPlayer;
+  const canScore = !state.turnCompleted && state.rollsUsed > 0;
+  const colClass = (i) => (i === current ? "current" : "");
+
+  const head = table.createTHead().insertRow();
+  head.append(cell("th", ""));
+  state.players.forEach((p, i) => head.append(cell("th", p.name, colClass(i))));
+
+  const body = table.createTBody();
+  CATEGORIES.forEach(([id, label], row) => {
+    const tr = body.insertRow();
+    tr.append(cell("th", label));
+
+    state.players.forEach((p, i) => {
+      const td = cell("td", "", colClass(i));
+      const saved = p.scorecard.scores[id];
+      if (saved !== null) {
+        td.textContent = saved;
+      } else if (i === current && canScore) {
+        td.append(scoreButton(id, label, state.possibleScores[id]));
+      }
+      tr.append(td);
+    });
+
+    // Sum og bonus står lige under 6'erne
+    if (row === 5) {
+      addSumRow(body, "Sum", state, (s) => s.upperSum);
+      addSumRow(body, "Bonus", state, (s) => s.bonus);
+    }
+  });
+
+  addSumRow(table.createTFoot(), "Total", state, (s) => s.total);
+}
+
+function addSumRow(section, label, state, value) {
+  const tr = section.insertRow();
+  tr.className = "sum";
+  tr.append(cell("th", label));
+  state.players.forEach((p, i) => {
+    tr.append(cell("td", value(p.scorecard), i === state.currentPlayer ? "current" : ""));
+  });
+}
+
+function scoreButton(category, label, points) {
+  const btn = cell("button", points, points === 0 ? "score-option zero" : "score-option");
+  btn.type = "button";
+  btn.setAttribute("aria-label", `${label}: ${points} point`);
+  btn.addEventListener("click", () => onChooseField(category, label, points));
+  return btn;
 }
 
 // Dansk ejefald: "Frederiks", men "Andreas'" (navne der ender på s, x eller z).
@@ -162,6 +250,11 @@ async function run(action) {
 
 function onToggleHold(index) {
   run(() => api.toggleHold(index));
+}
+
+function onChooseField(category, label, points) {
+  if (points === 0 && !confirm(`${label} giver 0 point. Vil du stryge feltet?`)) return;
+  run(() => api.score(category));
 }
 
 el.rollBtn.addEventListener("click", () => {

@@ -217,6 +217,79 @@ main {
   color: var(--red);
 }
 
+/* Pointtavle */
+
+.scoreboard-wrap {
+  margin-top: 24px;
+  overflow-x: auto;
+}
+
+.scoreboard {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+
+.scoreboard th,
+.scoreboard td {
+  padding: 5px 12px;
+  border-bottom: 1px solid #e3e5e8;
+  text-align: center;
+}
+
+.scoreboard tbody th,
+.scoreboard tfoot th {
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.scoreboard .current {
+  background: var(--green-soft);
+}
+
+.scoreboard .sum th,
+.scoreboard .sum td {
+  font-weight: 700;
+  background-color: #f8f9fa;
+}
+
+.scoreboard .sum .current {
+  background: var(--green-soft);
+}
+
+.scoreboard tfoot .sum th,
+.scoreboard tfoot .sum td {
+  border-top: 2px solid var(--line);
+  border-bottom: 0;
+}
+
+.score-option {
+  font: inherit;
+  font-weight: 700;
+  min-width: 44px;
+  padding: 2px 8px;
+  border: 2px dashed var(--green);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--green);
+  cursor: pointer;
+}
+
+.score-option:hover {
+  background: var(--green);
+  color: #fff;
+}
+
+.score-option.zero {
+  border-color: #c9ccd1;
+  color: var(--muted);
+}
+
+.score-option.zero:hover {
+  background: var(--muted);
+  color: #fff;
+}
+
 @media (max-width: 480px) {
   :root {
     --die-size: 50px;
