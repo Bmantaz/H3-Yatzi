@@ -11,6 +11,8 @@
   const BAUD_RATE = 115200;
   const RECONNECT_MS = 2000;
   const WS_PATH = new URLSearchParams(location.search).get("ws") || "/ws/opla";
+  // Kun disse linjer fra Oplaen sendes videre til serveren (docs/protocol.md)
+  const OPLA_MESSAGE = /^(READY( \S+)?|ROLL|HOLD [1-5])$/;
 
   let port = null;
   let writer = null;
@@ -102,10 +104,11 @@
         const line = buffer.slice(0, i).trim();
         buffer = buffer.slice(i + 1);
         if (!line) continue;
-        if (line.startsWith("#")) {
-          console.debug("Oplà:", line);
-        } else {
+        if (OPLA_MESSAGE.test(line)) {
           sendToServer(line);
+        } else {
+          // Debug (#) og andet støj, fx "Sd card not detected" fra Carrier-biblioteket ved opstart
+          console.debug("Oplà:", line);
         }
       }
     }
