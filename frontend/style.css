@@ -147,9 +147,17 @@ main {
 /* Spilskærm */
 
 .turn {
+  display: inline-block;
   margin: 0 0 20px;
   font-size: 1.3rem;
   font-weight: 700;
+}
+
+.turn.mine {
+  padding: 6px 16px;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
 }
 
 .dice {
@@ -260,14 +268,65 @@ main {
   font-size: 0.9rem;
 }
 
+/* Beskeder ligger i bunden af vinduet, så de kan ses selv når pointtavlen er lang */
 .message {
-  min-height: 1.4em;
+  position: sticky;
+  bottom: 12px;
   margin: 16px 0 0;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
   font-weight: 600;
 }
 
+.message:empty {
+  display: none;
+}
+
 .message.error {
+  background: #fdecea;
   color: var(--red);
+}
+
+/* Slutskærm */
+
+.game-over {
+  margin-bottom: 8px;
+}
+
+.winner {
+  margin: 0 0 16px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--green);
+  animation: pop 0.5s ease-out;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.ranking {
+  max-width: 360px;
+  margin: 0 0 20px;
+  padding-left: 1.4em;
+}
+
+.ranking li {
+  padding: 4px 0;
+}
+
+.ranking li span:last-child {
+  float: right;
+  font-weight: 600;
+}
+
+.ranking .best {
+  font-weight: 700;
+  color: var(--green);
 }
 
 /* Pointtavle */

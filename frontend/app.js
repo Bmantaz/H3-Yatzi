@@ -110,6 +110,12 @@ const el = {
   soloBtn: document.getElementById("solo-btn"),
   gameScreen: document.getElementById("game-screen"),
   turn: document.getElementById("turn"),
+  play: document.getElementById("play"),
+  hint: document.getElementById("hint"),
+  gameOver: document.getElementById("game-over"),
+  winner: document.getElementById("winner"),
+  ranking: document.getElementById("ranking"),
+  endNewGameBtn: document.getElementById("end-new-game-btn"),
   dice: document.getElementById("dice"),
   rollCount: document.getElementById("roll-count"),
   rollBtn: document.getElementById("roll-btn"),
@@ -219,24 +225,82 @@ function render(state) {
   el.gameScreen.hidden = false;
   el.newGameBtn.hidden = lobbyGame;
 
-  const player = state.players[state.currentPlayer];
-  el.turn.textContent = `${possessive(player.name)} tur`;
+  const over = isGameOver(state);
+  const myTurn = !over && canAct(state);
+  renderTurn(state, myTurn, over);
 
-  const myTurn = canAct(state);
+  el.play.hidden = over;
+  el.gameOver.hidden = !over;
+  if (over) renderGameOver(state);
+
   const canHold = myTurn && !state.turnCompleted && state.rollsUsed > 0 && state.rollsUsed < MAX_ROLLS;
   [...el.dice.children].forEach((die, i) => renderDie(die, i, state.dice[i], state.held[i], canHold));
-  if (rolled) rollAnimation(state);
+  if (rolled && !over) rollAnimation(state);
 
   el.rollCount.textContent = `Slag ${state.rollsUsed}/${MAX_ROLLS}`;
   el.rollBtn.disabled = !myTurn || state.turnCompleted || state.rollsUsed >= MAX_ROLLS;
+  el.hint.hidden = !myTurn;
 
-  if (state.turnCompleted) {
+  if (over) {
+    showMessage("");
+  } else if (state.turnCompleted) {
     showMessage("Turen er afsluttet.");
   } else if (myTurn && state.rollsUsed >= MAX_ROLLS) {
     showMessage("Alle slag er brugt. Vælg et felt på pointtavlen.");
   }
 
   renderScoreboard(state, myTurn);
+}
+
+function renderTurn(state, myTurn, over) {
+  const name = state.players[state.currentPlayer].name;
+  let text;
+  if (over) text = "Spillet er slut";
+  else if (!lobbyGame) text = `${possessive(name)} tur`;
+  else if (myTurn) text = "Din tur";
+  else if (myIndex !== null) text = `${possessive(name)} tur. Vent på din tur.`;
+  else text = `${possessive(name)} tur (du ser med)`;
+
+  el.turn.textContent = text;
+  el.turn.classList.toggle("mine", lobbyGame && myTurn);
+  document.title = lobbyGame && myTurn ? "Din tur · H3 Yatzi" : "H3 Yatzi";
+}
+
+// Spillet er slut, når alle spillere har udfyldt alle 15 felter
+function isGameOver(state) {
+  return state.players.every((p) => Object.values(p.scorecard.scores).every((v) => v !== null));
+}
+
+function namesText(names) {
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} og ${names[names.length - 1]}` : names[0];
+}
+
+function renderGameOver(state) {
+  const best = Math.max(...state.players.map((p) => p.scorecard.total));
+  const winners = state.players.filter((p) => p.scorecard.total === best);
+  const iWon = lobbyGame && myIndex !== null && state.players[myIndex].scorecard.total === best;
+
+  if (state.players.length === 1) {
+    el.winner.textContent = `${state.players[0].name} fik ${best} point`;
+  } else if (winners.length > 1) {
+    el.winner.textContent = `Uafgjort mellem ${namesText(winners.map((p) => p.name))} med ${best} point`;
+  } else if (iWon) {
+    el.winner.textContent = `Du vandt med ${best} point!`;
+  } else {
+    el.winner.textContent = `${winners[0].name} vandt med ${best} point!`;
+  }
+
+  el.ranking.replaceChildren();
+  [...state.players]
+    .sort((a, b) => b.scorecard.total - a.scorecard.total)
+    .forEach((p) => {
+      const li = cell("li", "", p.scorecard.total === best ? "best" : "");
+      li.append(cell("span", p.name), cell("span", `${p.scorecard.total} point`));
+      el.ranking.append(li);
+    });
+
+  // Nyt spil efter et lobbyspil kommer med #44
+  el.endNewGameBtn.hidden = lobbyGame;
 }
 
 function cell(tag, text, className) {
@@ -256,7 +320,10 @@ function renderScoreboard(state, myTurn) {
 
   const head = table.createTHead().insertRow();
   head.append(cell("th", ""));
-  state.players.forEach((p, i) => head.append(cell("th", p.name, colClass(i))));
+  state.players.forEach((p, i) => {
+    const me = lobbyGame && i === myIndex;
+    head.append(cell("th", me ? `${p.name} (dig)` : p.name, colClass(i)));
+  });
 
   const body = table.createTBody();
   CATEGORIES.forEach(([id, label], row) => {
@@ -408,13 +475,16 @@ el.soloBtn.addEventListener("click", () => {
   });
 });
 
-el.newGameBtn.addEventListener("click", () => {
+function backToLobby() {
   showMessage("");
   store.set("solo", null);
   run(async () => {
     renderLobby(await api.getLobby());
   });
-});
+}
+
+el.newGameBtn.addEventListener("click", backToLobby);
+el.endNewGameBtn.addEventListener("click", backToLobby);
 
 // Koden udfyldes, når Oplaen er forbundet med USB (bridge.js)
 window.addEventListener("opla:pair", (e) => {
