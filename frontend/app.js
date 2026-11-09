@@ -10,9 +10,13 @@
 //   possibleScores: {},
 //   turnCompleted:  false
 // }
+//
+// Lobbyen fra /api/lobby (se docs/lobby.md):
+// { players: [{ id, name, connected }], started: false }
 
 const MAX_ROLLS = 3;
 const DICE_COUNT = 5;
+const MAX_PLAYERS = 6;
 const POLL_MS = 1000;
 
 async function request(path, options) {
@@ -32,17 +36,21 @@ async function request(path, options) {
   return data;
 }
 
+function postJson(path, body) {
+  return request(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 const api = {
   getGame() {
     return request("/api/game");
   },
 
   newGame(name) {
-    return request("/api/game/new", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
+    return postJson("/api/game/new", { name });
   },
 
   roll() {
@@ -56,6 +64,18 @@ const api = {
 
   score(category) {
     return request(`/api/game/score/${category}`, { method: "POST" });
+  },
+
+  getLobby() {
+    return request("/api/lobby");
+  },
+
+  join(name, code) {
+    return postJson("/api/lobby/join", { name, code });
+  },
+
+  startLobby() {
+    return request("/api/lobby/start", { method: "POST" });
   },
 };
 
@@ -79,9 +99,15 @@ const CATEGORIES = [
 ];
 
 const el = {
-  startScreen: document.getElementById("start-screen"),
-  startForm: document.getElementById("start-form"),
+  lobbyScreen: document.getElementById("start-screen"),
+  joinForm: document.getElementById("join-form"),
   nameInput: document.getElementById("player-name"),
+  codeInput: document.getElementById("opla-code"),
+  joined: document.getElementById("joined"),
+  lobbyCount: document.getElementById("lobby-count"),
+  lobbyPlayers: document.getElementById("lobby-players"),
+  startBtn: document.getElementById("start-btn"),
+  soloBtn: document.getElementById("solo-btn"),
   gameScreen: document.getElementById("game-screen"),
   turn: document.getElementById("turn"),
   dice: document.getElementById("dice"),
@@ -91,6 +117,45 @@ const el = {
   scoreboard: document.getElementById("scoreboard"),
   message: document.getElementById("message"),
 };
+
+// sessionStorage er pr. fane, så to faner kan være to forskellige spillere
+const store = {
+  get(key) {
+    try {
+      return sessionStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set(key, value) {
+    try {
+      if (value === null) sessionStorage.removeItem(key);
+      else sessionStorage.setItem(key, value);
+    } catch {}
+  },
+};
+
+// Hvem er "mig"? Spillets JSON har ingen id'er, men spillerne står i samme rækkefølge som i lobbyen.
+let myId = store.get("playerId");
+let myIndex = null;
+let lobbyGame = false;
+
+function setMyId(id) {
+  myId = id;
+  store.set("playerId", id);
+}
+
+function enterLobbyGame(lobby) {
+  lobbyGame = true;
+  store.set("solo", null);
+  const i = lobby.players.findIndex((p) => p.id === myId);
+  myIndex = i >= 0 ? i : null;
+}
+
+// I et lobbyspil må kun spilleren med tur kaste og vælge felt
+function canAct(state) {
+  return !lobbyGame || myIndex === state.currentPlayer;
+}
 
 // Hvilke af de 9 pladser (3x3) der har en prik for hver værdi.
 const PIPS = {
@@ -143,33 +208,35 @@ function renderDie(die, index, value, held, canHold) {
   die.querySelector(".die-label").textContent = held ? "HOLDT" : String(index + 1);
 }
 
-// Tegner hele skærmen ud fra tilstanden
+// Tegner hele spilskærmen ud fra tilstanden
 let lastState = null;
 
 function render(state) {
   const rolled = lastState && state.rollsUsed > lastState.rollsUsed;
   lastState = state;
 
-  el.startScreen.hidden = true;
+  el.lobbyScreen.hidden = true;
   el.gameScreen.hidden = false;
+  el.newGameBtn.hidden = lobbyGame;
 
   const player = state.players[state.currentPlayer];
   el.turn.textContent = `${possessive(player.name)} tur`;
 
-  const canHold = !state.turnCompleted && state.rollsUsed > 0 && state.rollsUsed < MAX_ROLLS;
+  const myTurn = canAct(state);
+  const canHold = myTurn && !state.turnCompleted && state.rollsUsed > 0 && state.rollsUsed < MAX_ROLLS;
   [...el.dice.children].forEach((die, i) => renderDie(die, i, state.dice[i], state.held[i], canHold));
   if (rolled) rollAnimation(state);
 
   el.rollCount.textContent = `Slag ${state.rollsUsed}/${MAX_ROLLS}`;
-  el.rollBtn.disabled = state.turnCompleted || state.rollsUsed >= MAX_ROLLS;
+  el.rollBtn.disabled = !myTurn || state.turnCompleted || state.rollsUsed >= MAX_ROLLS;
 
   if (state.turnCompleted) {
     showMessage("Turen er afsluttet.");
-  } else if (state.rollsUsed >= MAX_ROLLS) {
+  } else if (myTurn && state.rollsUsed >= MAX_ROLLS) {
     showMessage("Alle slag er brugt. Vælg et felt på pointtavlen.");
   }
 
-  renderScoreboard(state);
+  renderScoreboard(state, myTurn);
 }
 
 function cell(tag, text, className) {
@@ -179,12 +246,12 @@ function cell(tag, text, className) {
   return c;
 }
 
-function renderScoreboard(state) {
+function renderScoreboard(state, myTurn) {
   const table = el.scoreboard;
   table.replaceChildren();
 
   const current = state.currentPlayer;
-  const canScore = !state.turnCompleted && state.rollsUsed > 0;
+  const canScore = myTurn && !state.turnCompleted && state.rollsUsed > 0;
   const colClass = (i) => (i === current ? "current" : "");
 
   const head = table.createTHead().insertRow();
@@ -234,6 +301,35 @@ function scoreButton(category, label, points) {
   return btn;
 }
 
+function renderLobby(lobby) {
+  el.gameScreen.hidden = true;
+  el.lobbyScreen.hidden = false;
+
+  const me = lobby.players.find((p) => p.id === myId);
+  if (myId && !me) setMyId(null); // fx hvis serveren er genstartet
+
+  el.joinForm.hidden = !!me;
+  el.soloBtn.hidden = !!me;
+  el.joined.hidden = !me;
+  if (me) el.joined.textContent = `Du er med som ${me.name}. Spillet går i gang, når nogen trykker Start spil.`;
+
+  el.lobbyCount.textContent = `Spillere (${lobby.players.length}/${MAX_PLAYERS})`;
+  el.lobbyPlayers.replaceChildren();
+  if (lobby.players.length === 0) {
+    el.lobbyPlayers.append(cell("li", "Ingen endnu", "empty"));
+  }
+  lobby.players.forEach((p) => {
+    const li = cell("li", "", p.id === myId ? "me" : "");
+    li.append(
+      cell("span", p.id === myId ? `${p.name} (dig)` : p.name),
+      cell("span", p.connected ? "Forbundet" : "Ikke forbundet", p.connected ? "status" : "status offline"),
+    );
+    el.lobbyPlayers.append(li);
+  });
+
+  el.startBtn.disabled = lobby.players.length === 0 || lobby.players.some((p) => !p.connected);
+}
+
 // Dansk ejefald: "Frederiks", men "Andreas'" (navne der ender på s, x eller z).
 function possessive(name) {
   return /[sxz]$/i.test(name) ? `${name}'` : `${name}s`;
@@ -253,7 +349,8 @@ async function run(action) {
   actions++;
   try {
     showMessage("");
-    render(await action());
+    const state = await action();
+    if (state) render(state);
   } catch (err) {
     showMessage(err.message, true);
   } finally {
@@ -274,19 +371,54 @@ el.rollBtn.addEventListener("click", () => {
   run(() => api.roll());
 });
 
-el.startForm.addEventListener("submit", (event) => {
+el.joinForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  const name = el.nameInput.value.trim();
+  const code = el.codeInput.value.trim();
+  if (!name) return;
+
+  run(async () => {
+    const lobby = await api.join(name, code);
+    // Svaret er lobbyen lige efter vores join, så vi er den sidste med navnet
+    const mine = lobby.players.filter((p) => p.name === name).pop();
+    setMyId(mine ? mine.id : null);
+    renderLobby(lobby);
+  });
+});
+
+el.startBtn.addEventListener("click", () => {
+  run(async () => {
+    const state = await api.startLobby();
+    enterLobbyGame(await api.getLobby());
+    return state;
+  });
+});
+
+el.soloBtn.addEventListener("click", () => {
+  if (!el.nameInput.reportValidity()) return;
   const name = el.nameInput.value.trim();
   if (!name) return;
 
-  run(() => api.newGame(name));
+  run(async () => {
+    const state = await api.newGame(name);
+    lobbyGame = false;
+    myIndex = null;
+    store.set("solo", "1");
+    return state;
+  });
 });
 
 el.newGameBtn.addEventListener("click", () => {
   showMessage("");
-  el.gameScreen.hidden = true;
-  el.startScreen.hidden = false;
-  el.nameInput.focus();
+  store.set("solo", null);
+  run(async () => {
+    renderLobby(await api.getLobby());
+  });
+});
+
+// Koden udfyldes, når Oplaen er forbundet med USB (bridge.js)
+window.addEventListener("opla:pair", (e) => {
+  el.codeInput.value = e.detail.code;
 });
 
 // Terninger der ikke holdes, ryster og viser tilfældige øjne, før de lander på serverens værdi.
@@ -309,23 +441,32 @@ function rollAnimation(state) {
   }, 80);
 }
 
-// Henter tilstanden hvert sekund, så kast og hold fra Oplaen og de andre spillere vises.
+// Henter tilstanden hvert sekund: spillet når det er i gang, ellers lobbyen.
 let polling = false;
 let pollFailed = false;
 
 async function poll() {
-  if (busy || polling || el.gameScreen.hidden || document.hidden) return;
+  if (busy || polling || document.hidden) return;
   polling = true;
   const before = actions;
   try {
-    const state = await api.getGame();
+    let state = null;
+    let lobby = null;
+    if (!el.gameScreen.hidden) {
+      state = await api.getGame();
+    } else {
+      lobby = await api.getLobby();
+      if (lobby.started) state = await api.getGame();
+    }
     if (before !== actions) return; // et klik er sket imens, og dets svar er nyere
 
     if (pollFailed) {
       pollFailed = false;
       showMessage("");
     }
-    if (JSON.stringify(state) !== JSON.stringify(lastState)) render(state);
+    if (lobby && lobby.started) enterLobbyGame(lobby);
+    if (lobby && !lobby.started) renderLobby(lobby);
+    else if (JSON.stringify(state) !== JSON.stringify(lastState) || !el.lobbyScreen.hidden) render(state);
   } catch (err) {
     if (before !== actions) return;
     pollFailed = true;
@@ -335,13 +476,28 @@ async function poll() {
   }
 }
 
+async function load() {
+  try {
+    const lobby = await api.getLobby();
+    if (lobby.started) {
+      enterLobbyGame(lobby);
+      render(await api.getGame());
+      return;
+    }
+    if (store.get("solo")) {
+      try {
+        render(await api.getGame());
+        return;
+      } catch (err) {
+        if (err.status !== 404) throw err;
+      }
+    }
+    renderLobby(lobby);
+  } catch (err) {
+    showMessage(err.message, true);
+  }
+}
+
 createDice();
-
-// 404 = intet spil endnu, så bliver startskærmen stående
-api.getGame()
-  .then(render)
-  .catch((err) => {
-    if (err.status !== 404) showMessage(err.message, true);
-  });
-
+load();
 setInterval(poll, POLL_MS);

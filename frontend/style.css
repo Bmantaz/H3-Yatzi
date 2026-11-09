@@ -14,6 +14,11 @@
   box-sizing: border-box;
 }
 
+/* ellers vinder fx display: flex over hidden-attributten */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
@@ -89,6 +94,54 @@ main {
 .start-form input:focus {
   outline: none;
   border-color: var(--green);
+}
+
+#opla-code {
+  flex: 0 0 90px;
+  letter-spacing: 0.15em;
+}
+
+/* Lobby */
+
+.joined {
+  margin: 0;
+  font-weight: 600;
+  color: var(--green);
+}
+
+.lobby-count {
+  margin: 24px 0 8px;
+  font-size: 1rem;
+}
+
+.lobby-players {
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.lobby-players li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #e3e5e8;
+}
+
+.lobby-players .me {
+  font-weight: 700;
+}
+
+.lobby-players .status {
+  color: var(--green);
+  font-size: 0.9rem;
+}
+
+.lobby-players .status.offline {
+  color: var(--red);
+}
+
+.lobby-players .empty {
+  color: var(--muted);
 }
 
 /* Spilskærm */
@@ -317,9 +370,9 @@ main {
 
 /* Browser-bro (S2.11) */
 .opla-connect {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--bg);
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--bg);
 }
 
 .opla-status {

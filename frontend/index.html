@@ -12,19 +12,31 @@
   </header>
 
   <main>
-    <!-- Startskærm (S1.8). Udbygges til lobby med Oplà-kode og spillerliste i S2.10. -->
+    <!-- Lobby: join med navn og koden fra Oplaen -->
     <section id="start-screen" class="card">
-      <h2>Nyt spil</h2>
-      <form id="start-form" class="start-form">
-        <label for="player-name">Dit navn</label>
-        <input id="player-name" name="name" type="text" maxlength="20" autocomplete="nickname" required>
-        <button type="submit" class="btn btn-primary">Start spil</button>
-      </form>
+      <h2>Lobby</h2>
 
-      <!-- Browser-bro (S2.11): Oplà i USB. Flyttes ind i lobbyen i S2.10 – koden kommer som hændelsen opla:pair. -->
+      <!-- Browser-bro (S2.11). Koden udfyldes af sig selv, når Oplaen er forbundet med USB. -->
       <div class="opla-connect">
         <button id="opla-connect-btn" type="button" class="btn">Forbind Oplà (USB)</button>
-        <p id="opla-status" class="opla-status" role="status" aria-live="polite"></p>
+        <p id="opla-status" class="opla-status" role="status" aria-live="polite">Oplà på WiFi? Skriv koden fra dens skærm herunder.</p>
+      </div>
+
+      <form id="join-form" class="start-form">
+        <label for="player-name">Dit navn</label>
+        <input id="player-name" name="name" type="text" maxlength="20" autocomplete="nickname" required>
+        <label for="opla-code">Oplà-kode</label>
+        <input id="opla-code" name="code" type="text" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="1234" autocomplete="off" required title="4 cifre fra Oplaens skærm">
+        <button type="submit" class="btn btn-primary">Join</button>
+      </form>
+      <p id="joined" class="joined" hidden></p>
+
+      <h3 id="lobby-count" class="lobby-count"></h3>
+      <ul id="lobby-players" class="lobby-players"></ul>
+
+      <div class="controls">
+        <button id="start-btn" type="button" class="btn btn-primary">Start spil</button>
+        <button id="solo-btn" type="button" class="btn">Spil uden Oplà</button>
       </div>
     </section>
 
