@@ -13,6 +13,7 @@
 
 const MAX_ROLLS = 3;
 const DICE_COUNT = 5;
+const POLL_MS = 1000;
 
 async function request(path, options) {
   let res;
@@ -121,14 +122,18 @@ function createDice() {
 
     die.append(face, label);
     die.addEventListener("click", () => onToggleHold(i));
+    die.addEventListener("animationend", () => die.classList.remove("rolling"));
     el.dice.appendChild(die);
   }
 }
 
-function renderDie(die, index, value, held, canHold) {
-  const pips = die.querySelectorAll(".pip");
+function showPips(die, value) {
   const visible = PIPS[value] || [];
-  pips.forEach((pip, p) => pip.classList.toggle("on", visible.includes(p)));
+  die.querySelectorAll(".pip").forEach((pip, p) => pip.classList.toggle("on", visible.includes(p)));
+}
+
+function renderDie(die, index, value, held, canHold) {
+  showPips(die, value);
 
   die.classList.toggle("held", held);
   die.classList.toggle("unrolled", !value);
@@ -139,7 +144,12 @@ function renderDie(die, index, value, held, canHold) {
 }
 
 // Tegner hele skærmen ud fra tilstanden
+let lastState = null;
+
 function render(state) {
+  const rolled = lastState && state.rollsUsed > lastState.rollsUsed;
+  lastState = state;
+
   el.startScreen.hidden = true;
   el.gameScreen.hidden = false;
 
@@ -148,6 +158,7 @@ function render(state) {
 
   const canHold = !state.turnCompleted && state.rollsUsed > 0 && state.rollsUsed < MAX_ROLLS;
   [...el.dice.children].forEach((die, i) => renderDie(die, i, state.dice[i], state.held[i], canHold));
+  if (rolled) rollAnimation(state);
 
   el.rollCount.textContent = `Slag ${state.rollsUsed}/${MAX_ROLLS}`;
   el.rollBtn.disabled = state.turnCompleted || state.rollsUsed >= MAX_ROLLS;
@@ -234,10 +245,12 @@ function showMessage(text, isError = false) {
 }
 
 let busy = false; // så et dobbeltklik på Kast ikke bruger to slag
+let actions = 0;
 
 async function run(action) {
   if (busy) return;
   busy = true;
+  actions++;
   try {
     showMessage("");
     render(await action());
@@ -258,11 +271,7 @@ function onChooseField(category, label, points) {
 }
 
 el.rollBtn.addEventListener("click", () => {
-  run(async () => {
-    const state = await api.roll();
-    rollAnimation();
-    return state;
-  });
+  run(() => api.roll());
 });
 
 el.startForm.addEventListener("submit", (event) => {
@@ -280,13 +289,50 @@ el.newGameBtn.addEventListener("click", () => {
   el.nameInput.focus();
 });
 
-// Kort ryste-effekt på de terninger der ikke holdes. Rigtig animation kommer i S2.7.
-function rollAnimation() {
-  el.dice.querySelectorAll(".die:not(.held)").forEach((die) => {
+// Terninger der ikke holdes, ryster og viser tilfældige øjne, før de lander på serverens værdi.
+let rollTimer = null;
+
+function rollAnimation(state) {
+  const dice = [...el.dice.children].filter((die, i) => !state.held[i]);
+  dice.forEach((die) => {
     die.classList.remove("rolling");
     void die.offsetWidth; // genstart animationen
     die.classList.add("rolling");
   });
+
+  clearInterval(rollTimer);
+  let ticks = 0;
+  rollTimer = setInterval(() => {
+    ticks++;
+    dice.forEach((die) => showPips(die, ticks < 6 ? 1 + Math.floor(Math.random() * 6) : state.dice[die.dataset.index]));
+    if (ticks === 6) clearInterval(rollTimer);
+  }, 80);
+}
+
+// Henter tilstanden hvert sekund, så kast og hold fra Oplaen og de andre spillere vises.
+let polling = false;
+let pollFailed = false;
+
+async function poll() {
+  if (busy || polling || el.gameScreen.hidden || document.hidden) return;
+  polling = true;
+  const before = actions;
+  try {
+    const state = await api.getGame();
+    if (before !== actions) return; // et klik er sket imens, og dets svar er nyere
+
+    if (pollFailed) {
+      pollFailed = false;
+      showMessage("");
+    }
+    if (JSON.stringify(state) !== JSON.stringify(lastState)) render(state);
+  } catch (err) {
+    if (before !== actions) return;
+    pollFailed = true;
+    showMessage(err.message, true);
+  } finally {
+    polling = false;
+  }
 }
 
 createDice();
@@ -297,3 +343,5 @@ api.getGame()
   .catch((err) => {
     if (err.status !== 404) showMessage(err.message, true);
   });
+
+setInterval(poll, POLL_MS);
