@@ -100,6 +100,8 @@ void handleMessage(const String& line) {
 }
 
 void loop() {
+  linkUpdate();  // S3.9: holder WiFi/WebSocket i live og skifter mellem WiFi og USB
+
   // Ny forbindelse (fx browseren har lige åbnet porten): send READY igen med det samme.
   // Ikke alle programmer melder at de har åbnet porten, så READY sendes også uden.
   bool connected = linkConnected();
@@ -117,6 +119,12 @@ void loop() {
 
   if (!serverAnswered && millis() - readySentAt >= READY_RETRY_MS) {
     sendReady();
+  }
+
+  static bool shownWifi = false;
+  if (linkUsesWifi() != shownWifi) {  // S3.9: vis USB/WiFi på skærmen, når forbindelsen skifter
+    shownWifi = linkUsesWifi();
+    showTransport();
   }
 
   String line;

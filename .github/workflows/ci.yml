@@ -76,3 +76,4 @@ jobs:
           libraries: |
             - name: Arduino_MKRIoTCarrier
             - name: WiFiNINA
+            - name: ArduinoHttpClient

@@ -3,8 +3,8 @@
 
 extern MKRIoTCarrier carrier;
 
-// Touch-knap -> terning: TOUCH0 = terning 1 ... TOUCH4 = terning 5.
-static const touchButtons TOUCH_FOR_DIE[5] = { TOUCH0, TOUCH1, TOUCH2, TOUCH3, TOUCH4 };
+// Touch-knap -> terning: nu omvendt, så terning 1 = TOUCH4 ... terning 5 = TOUCH0.
+static const touchButtons TOUCH_FOR_DIE[5] = { TOUCH4, TOUCH3, TOUCH2, TOUCH1, TOUCH0 };
 
 // Touch-signalet kan flimre, især med plastikcase. Et nyt tryk tæller derfor først,
 // når knappen har været sluppet så længe (ms). Ret tallet, hvis det er for træg/følsomt.
@@ -13,7 +13,8 @@ static const unsigned long RELEASE_MS = 120;
 static bool touchedBefore[5]          = { false, false, false, false, false };
 static unsigned long releasedAt[5]    = { 0, 0, 0, 0, 0 };
 
-static const int LED_FOR_DIE[5] = { 0, 1, 2, 3, 4 };
+// LED -> terning, også omvendt, så LED'en stadig sidder ved sin knap.
+static const int LED_FOR_DIE[5] = { 4, 3, 2, 1, 0 };
 
 // Grøn LED for en holdt terning. Lav værdi = ikke blændende kraftigt.
 static const int GREEN_R = 0, GREEN_G = 120, GREEN_B = 0;
