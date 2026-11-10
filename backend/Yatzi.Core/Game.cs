@@ -4,7 +4,8 @@ namespace Yatzi.Core;
 
 /// <summary>
 /// Spillets tilstand og regler i backendens kerne, uafhængigt af web og hardware.
-/// Ejer én privat pointtavle og styrer kast, hold/slip og ét feltvalg pr. tur.
+/// Ejer én privat pointtavle og styrer kast, hold/slip, ét feltvalg pr. tur
+/// og eksplicit start af næste tur uden at miste spillerens point.
 /// Andre komponenter har kun læseadgang. Klassen har ingen egen lås;
 /// fælles adgang fra HTTP og Oplà beskyttes af GameSession i API-laget.
 /// </summary>
@@ -42,6 +43,12 @@ public class Game
     public IReadOnlyDictionary<ScoreCategory, int?> Scores => _scorecard.Scores;
 
     /// <summary>
+    /// True når denne spillers 15 felter er udfyldt, inklusive gemte nuller.
+    /// Beskriver kun spillerens tavle; hele spillets afslutning hører til i GameSession.
+    /// </summary>
+    public bool IsScorecardComplete => _scorecard.IsComplete;
+
+    /// <summary>
     /// Gemte point i de seks øvre felter, beregnet af pointtavlen ved læsning.
     /// </summary>
     public int UpperSum => _scorecard.UpperSum;
@@ -58,7 +65,8 @@ public class Game
 
     /// <summary>
     /// True efter ét accepteret feltvalg. Turens terninger, hold og slag bevares,
-    /// mens flere handlinger afvises. Næste tur tilføjes i opgave #44.
+    /// mens kast, hold og feltvalg afvises. StartNextTurn åbner eksplicit næste tur,
+    /// hvis pointtavlen stadig har ledige felter; Score og Strike starter den ikke selv.
     /// </summary>
     public bool TurnCompleted { get; private set; }
 
@@ -108,6 +116,37 @@ public class Game
         // tilstanden, uden at andre komponenter får direkte skriveadgang.
         Dice = Array.AsReadOnly(_dice);
         Held = Array.AsReadOnly(_held);
+    }
+
+    /// <summary>
+    /// Åbner næste tur efter et accepteret feltvalg, hvis tavlen ikke er fuld.
+    /// Nulstiller terninger, hold, slag og turafslutning uden at kaste eller ændre point.
+    /// Første tur er allerede åben fra konstruktøren. GameSession styrer,
+    /// hvornår en afsluttet spiller genaktiveres, og beskytter fælles adgang med sin lås.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Den aktuelle tur er ikke afsluttet, eller pointtavlen er fuld. Hele tilstanden bevares.
+    /// </exception>
+    public void StartNextTurn()
+    {
+        if (!TurnCompleted)
+        {
+            throw new InvalidOperationException(
+                "Den aktuelle tur skal afsluttes, før en ny tur kan starte.");
+        }
+
+        if (IsScorecardComplete)
+        {
+            throw new InvalidOperationException(
+                "Pointtavlen er fuld. Der kan ikke startes en ny tur.");
+        }
+
+        // Bevar arrays og deres skrivebeskyttede visninger. Ingen tilfældighed
+        // bruges før spillerens første Roll i den nye tur.
+        Array.Clear(_dice);
+        Array.Clear(_held);
+        RollsUsed = 0;
+        TurnCompleted = false;
     }
 
     /// <summary>
@@ -229,6 +268,4 @@ public class Game
                 "Turen er afsluttet. Der kan ikke udføres flere handlinger i denne tur.");
         }
     }
-
-    // TODO: næste tur, flere spillere og spillets afslutning i opgave #44.
 }

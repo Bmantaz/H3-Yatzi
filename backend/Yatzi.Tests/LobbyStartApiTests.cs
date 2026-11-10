@@ -98,7 +98,7 @@ public partial class LobbyApiTests
     }
 
     [Fact]
-    public async Task StartedLobby_HttpActionsAffectOnlyFirstPlayerAndReconnectRestoresStateOrWait()
+    public async Task StartedLobby_HttpActionsRotatePlayersAndReconnectRestoresCurrentStateOrWait()
     {
         using var client = _factory.CreateClient();
         var first = await JoinOnFactoryAsync(_factory, client, "Åse Øster");
@@ -107,15 +107,22 @@ public partial class LobbyApiTests
         started.EnsureSuccessStatusCode();
         Assert.Equal("STATE 0 00000", await ReceiveAsync(first.Socket));
         Assert.Equal("WAIT Åse Øster", await ReceiveAsync(second.Socket));
-        using var rolled = await client.PostAsync("/api/game/roll", null, _deadline.Token);
+        var initialState = (await started.Content.ReadFromJsonAsync<GameStateResponse>(_deadline.Token))!;
+        var ids = _factory.Services.GetRequiredService<LobbySession>().GetState().Players;
+        using var rolled = await GameHttpActions.PostAsync(client, "/api/game/roll", initialState, ids[0].Id, _deadline.Token);
         rolled.EnsureSuccessStatusCode();
-        using var held = await client.PostAsync("/api/game/hold/3", null, _deadline.Token);
+        Assert.Equal("STATE 1 00000", await ReceiveAsync(first.Socket));
+        using var held = await GameHttpActions.PostAsync(client, "/api/game/hold/3", initialState, ids[0].Id, _deadline.Token);
         held.EnsureSuccessStatusCode();
-        using var scored = await client.PostAsync("/api/game/strike/chance", null, _deadline.Token);
+        Assert.Equal("STATE 1 00100", await ReceiveAsync(first.Socket));
+        using var scored = await GameHttpActions.PostAsync(client, "/api/game/strike/chance", initialState, ids[0].Id, _deadline.Token);
+        Assert.Equal("WAIT Bjarke", await ReceiveAsync(first.Socket));
+        Assert.Equal("STATE 0 00000", await ReceiveAsync(second.Socket));
         using var scoredJson = await ReadJsonAsync(scored);
         var state = scoredJson.RootElement;
-        Assert.True(state.GetProperty("turnCompleted").GetBoolean());
-        Assert.Equal(0, state.GetProperty("currentPlayer").GetInt32());
+        Assert.False(state.GetProperty("turnCompleted").GetBoolean());
+        Assert.Equal(1, state.GetProperty("currentPlayer").GetInt32());
+        Assert.Equal(0, state.GetProperty("rollsUsed").GetInt32());
         Assert.Equal(0, state.GetProperty("players")[0].GetProperty("scorecard").GetProperty("scores").GetProperty("chance").GetInt32());
         Assert.All(state.GetProperty("players")[1].GetProperty("scorecard").GetProperty("scores").EnumerateObject(),
             score => Assert.Equal(JsonValueKind.Null, score.Value.ValueKind));
@@ -124,23 +131,35 @@ public partial class LobbyApiTests
             await SendAsync(player.Socket, "READY " + player.Code);
             Assert.Equal("PAIR " + player.Code, await ReceiveAsync(player.Socket));
             Assert.Equal(player.Code == first.Code ? "JOINED Åse Øster" : "JOINED Bjarke", await ReceiveAsync(player.Socket));
-            Assert.Equal(player.Code == first.Code ? "STATE 1 00100" : "WAIT Åse Øster", await ReceiveAsync(player.Socket));
+            Assert.Equal(player.Code == first.Code ? "WAIT Bjarke" : "STATE 0 00000", await ReceiveAsync(player.Socket));
         }
-        // Identiteten er gyldig, men den afsluttede tur må ikke genåbnes.
+        // Første spiller er stadig parret, men har ikke længere tur.
         foreach (string command in new[] { "ROLL", "HOLD 1" })
         {
             await SendAsync(first.Socket, command);
-            Assert.Contains("Turen er afsluttet", (await _handlerLogs.ReadAsync(_deadline.Token)).Message);
+            Assert.Contains("Det er ikke denne spillers tur", (await _handlerLogs.ReadAsync(_deadline.Token)).Message);
         }
         await CloseAsync(first.Socket, first.Connection);
         var current = await ConnectAsync(_factory);
         await SendAsync(current, "READY " + first.Code);
         Assert.Equal("PAIR " + first.Code, await ReceiveAsync(current));
         Assert.Equal("JOINED Åse Øster", await ReceiveAsync(current));
-        Assert.Equal("STATE 1 00100", await ReceiveAsync(current));
+        Assert.Equal("WAIT Bjarke", await ReceiveAsync(current));
         Assert.Equal(state.GetRawText(), await client.GetStringAsync("/api/game", _deadline.Token));
-        using var deniedRoll = await client.PostAsync("/api/game/roll", null, _deadline.Token);
-        Assert.Equal(HttpStatusCode.Conflict, deniedRoll.StatusCode);
+        // HTTP bruger den nye spillers eksplicitte kontekst, også som reserve efter overtagelse.
+        using var nextRoll = await GameHttpActions.PostAsync(client, "/api/game/roll",
+            _factory.Services.GetRequiredService<GameSession>().GetState(), ids[1].Id, _deadline.Token);
+        nextRoll.EnsureSuccessStatusCode();
+        Assert.Equal("STATE 1 00000", await ReceiveAsync(second.Socket));
+        var next = (await client.GetFromJsonAsync<GameStateResponse>("/api/game", _deadline.Token))!;
+        Assert.Equal(1, next.CurrentPlayer);
+        Assert.Equal(1, next.RollsUsed);
+        Assert.Equal(0, next.Players[0].Scorecard.Scores["chance"]);
+        await SendAsync(second.Socket, "READY " + second.Code);
+        Assert.Equal("PAIR " + second.Code, await ReceiveAsync(second.Socket));
+        Assert.Equal("JOINED Bjarke", await ReceiveAsync(second.Socket));
+        Assert.Equal("STATE 1 00000", await ReceiveAsync(second.Socket));
+        Assert.Equal(1, (await client.GetFromJsonAsync<GameStateResponse>("/api/game", _deadline.Token))!.RollsUsed);
         var registry = _factory.Services.GetRequiredService<OplaConnectionRegistry>();
         var currentConnection = Assert.Single(registry.GetConnections(), connection => connection.ConnectionId != second.Connection.ConnectionId);
         await CloseAsync(current, currentConnection);
@@ -242,8 +261,12 @@ public partial class LobbyApiTests
         string code = pair[5..];
         using var joined = await client.PostAsJsonAsync("/api/lobby/join", new { name, code }, _deadline.Token);
         joined.EnsureSuccessStatusCode();
+        var result = (await joined.Content.ReadFromJsonAsync<LobbyJoinResponse>(_deadline.Token))!;
+        var connection = Assert.Single(registry.GetConnections(), connection => !previous.Contains(connection.ConnectionId));
+        Assert.True(registry.TryGetPlayerId(connection.ConnectionId, out Guid boundId));
+        Assert.Equal(boundId, result.JoinedPlayerId);
         Assert.Equal("JOINED " + name, await ReceiveAsync(socket));
-        return (socket, Assert.Single(registry.GetConnections(), connection => !previous.Contains(connection.ConnectionId)), code);
+        return (socket, connection, code);
     }
 
     private async Task<(ControlledWebSocket Socket, OplaConnection Connection)> ControlledJoinedAsync(HttpClient client, string name)
@@ -259,13 +282,18 @@ public partial class LobbyApiTests
         string code = Encoding.UTF8.GetString(socket.Sent.Single())[5..];
         using var joined = await client.PostAsJsonAsync("/api/lobby/join", new { name, code }, _deadline.Token);
         joined.EnsureSuccessStatusCode();
+        var joinedState = (await joined.Content.ReadFromJsonAsync<LobbyJoinResponse>(_deadline.Token))!;
+        Assert.True(registry.TryGetPlayerId(connection.ConnectionId, out Guid boundId));
+        Assert.Equal(boundId, joinedState.JoinedPlayerId);
         return (socket, connection);
     }
 
     private static void AssertInitialLobbyGame(JsonElement state, string[] names)
     {
-        Assert.Equal(new[] { "players", "currentPlayer", "dice", "held", "rollsUsed", "possibleScores", "turnCompleted" },
-            state.EnumerateObject().Select(property => property.Name));
+        GameStateAssertions.AssertJsonShape(state, names.Length);
+        Assert.Equal(1, state.GetProperty("turnNumber").GetInt32());
+        Assert.False(state.GetProperty("gameCompleted").GetBoolean());
+        Assert.Empty(state.GetProperty("winnerIndices").EnumerateArray());
         Assert.Equal(names, state.GetProperty("players").EnumerateArray().Select(player => player.GetProperty("name").GetString()));
         Assert.Equal(0, state.GetProperty("currentPlayer").GetInt32());
         Assert.Equal(new int[5], state.GetProperty("dice").EnumerateArray().Select(value => value.GetInt32()));

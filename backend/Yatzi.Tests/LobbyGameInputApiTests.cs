@@ -15,12 +15,16 @@ public partial class LobbyApiTests
 {
     [Theory]
     [InlineData("Development", 1)]
+    [InlineData("Development", 2)]
     [InlineData("Development", 6)]
     [InlineData("Production", 1)]
+    [InlineData("Production", 2)]
     [InlineData("Production", 6)]
     [InlineData("Staging", 1)]
+    [InlineData("Staging", 2)]
     [InlineData("Staging", 6)]
     [InlineData("Test", 1)]
+    [InlineData("Test", 2)]
     [InlineData("Test", 6)]
     public async Task LobbyGameInput_OnlyActiveCurrentOwnerCanPlayInEveryEnvironment(string environment, int count)
     {
@@ -77,22 +81,37 @@ public partial class LobbyApiTests
         Assert.Equal("STATE 3 00000", await ReceiveAsync(current));
         await SendAsync(current, "HOLD 1");
         Assert.Contains("hold", (await _handlerLogs.ReadAsync(_deadline.Token)).Message, StringComparison.OrdinalIgnoreCase);
-        using var scored = await client.PostAsync("/api/game/strike/chance", null, _deadline.Token);
+        using var scored = await GameHttpActions.PostAsync(client, "/api/game/strike/chance",
+            factory.Services.GetRequiredService<GameSession>().GetState(), identities[0].Id, _deadline.Token);
         scored.EnsureSuccessStatusCode();
-        foreach (string command in new[] { "ROLL", "HOLD 1" })
+        Assert.Equal(count == 1 ? "STATE 0 00000" : "WAIT Åse Øster", await ReceiveAsync(current));
+        for (int i = 1; i < count; i++)
+            Assert.Equal(i == 1 ? "STATE 0 00000" : "WAIT Åse Øster", await ReceiveAsync(players[i].Socket));
+        var next = (await client.GetFromJsonAsync<GameStateResponse>("/api/game", _deadline.Token))!;
+        Assert.False(next.TurnCompleted);
+        Assert.Equal(1 % count, next.CurrentPlayer);
+        Assert.Equal(0, next.RollsUsed);
+        Assert.Equal(new int[5], next.Dice);
+        Assert.Equal(new bool[5], next.Held);
+        Assert.Equal(0, next.Players[0].Scorecard.Scores["chance"]);
+        Assert.All(next.Players.Skip(1), player => Assert.All(player.Scorecard.Scores.Values, Assert.Null));
+        if (count > 1)
         {
-            await SendAsync(current, command);
-            Assert.Contains("Turen er afsluttet", (await _handlerLogs.ReadAsync(_deadline.Token)).Message);
+            foreach (string command in new[] { "ROLL", "HOLD 1" })
+            {
+                await SendAsync(current, command);
+                Assert.Contains("Det er ikke denne spillers tur", (await _handlerLogs.ReadAsync(_deadline.Token)).Message);
+            }
         }
-        var completed = (await client.GetFromJsonAsync<GameStateResponse>("/api/game", _deadline.Token))!;
-        Assert.True(completed.TurnCompleted);
-        Assert.Equal(0, completed.CurrentPlayer);
-        Assert.Equal(0, completed.Players[0].Scorecard.Scores["chance"]);
-        Assert.All(completed.Players.Skip(1), player => Assert.All(player.Scorecard.Scores.Values, Assert.Null));
+        WebSocket active = count == 1 ? current : players[1].Socket;
+        await SendAsync(active, "ROLL");
+        Assert.Equal("STATE 1 00000", await ReceiveAsync(active));
+        await SendAsync(active, "HOLD 1");
+        Assert.Equal("STATE 1 10000", await ReceiveAsync(active));
         using var reset = await client.PostAsJsonAsync("/api/game/new", new { name = "Nulstilling" }, _deadline.Token);
         Assert.Equal(HttpStatusCode.Conflict, reset.StatusCode);
         await CloseAsync(current, currentConnection);
-        // Første resterende frame skal være Close: inaktive spillere fik ingen spilsvar.
+        // Alle forventede spilsvar er læst; næste frame på hver socket skal være Close.
         foreach (var player in players.Skip(1)) await CloseAsync(player.Socket, player.Connection);
         Assert.Empty(_lobbyLogs.Entries);
     }
@@ -105,7 +124,9 @@ public partial class LobbyApiTests
         using var started = await client.PostAsync("/api/lobby/start", null, _deadline.Token);
         started.EnsureSuccessStatusCode();
         Assert.Equal("STATE 0 00000", await ReceiveAsync(first.Socket));
-        var requests = Enumerable.Range(0, 3).Select(_ => client.PostAsync("/api/game/roll", null, _deadline.Token)).ToArray();
+        var before = _factory.Services.GetRequiredService<GameSession>().GetState()!;
+        Guid playerId = _factory.Services.GetRequiredService<LobbySession>().GetState().Players[0].Id;
+        var requests = Enumerable.Range(0, 3).Select(_ => GameHttpActions.PostAsync(client, "/api/game/roll", before, playerId, _deadline.Token)).ToArray();
         for (int i = 0; i < 3; i++) await SendAsync(first.Socket, "ROLL");
         await SendAsync(first.Socket, "READY");
         var rolls = new List<int>();
@@ -122,8 +143,9 @@ public partial class LobbyApiTests
         try
         {
             Assert.All(responses, response => Assert.Contains(response.StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.Conflict }));
-            Assert.Equal(3, responses.Count(response => response.IsSuccessStatusCode) + rolls.Count);
-            Assert.Equal(rolls.Order(), rolls);
+            // Også accepterede HTTP-kast køer ét STATE. Alle seks forsøg deler turen,
+            // men samlet kan kun tre kast accepteres og dermed give netop disse svar.
+            Assert.Equal(new[] { 1, 2, 3 }, rolls);
             Assert.Equal(3, (await client.GetFromJsonAsync<GameStateResponse>("/api/game", _deadline.Token))!.RollsUsed);
         }
         finally { foreach (var response in responses) response.Dispose(); }

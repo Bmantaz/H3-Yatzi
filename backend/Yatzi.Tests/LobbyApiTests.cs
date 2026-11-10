@@ -59,6 +59,8 @@ public partial class LobbyApiTests : IDisposable
         var player = Assert.Single(json.RootElement.GetProperty("players").EnumerateArray());
         Assert.Equal(new[] { "id", "name", "connected" }, player.EnumerateObject().Select(property => property.Name));
         Guid playerId = player.GetProperty("id").GetGuid();
+        Assert.Equal(new[] { "players", "started", "joinedPlayerId" }, json.RootElement.EnumerateObject().Select(property => property.Name));
+        Assert.Equal(playerId, json.RootElement.GetProperty("joinedPlayerId").GetGuid());
         Assert.NotEqual(Guid.Empty, playerId);
         Assert.Equal("Andreas", player.GetProperty("name").GetString());
         Assert.True(player.GetProperty("connected").GetBoolean());
@@ -105,7 +107,7 @@ public partial class LobbyApiTests : IDisposable
         var registry = factory.Services.GetRequiredService<OplaConnectionRegistry>();
         using var created = await client.PostAsJsonAsync("/api/game/new", new { name = "Selvstændigt spil" }, _deadline.Token);
         created.EnsureSuccessStatusCode();
-        using var rolled = await client.PostAsync("/api/game/roll", null, _deadline.Token);
+        using var rolled = await GameHttpActions.PostAsync(client, "/api/game/roll", factory.Services.GetRequiredService<GameSession>().GetState(), cancellationToken: _deadline.Token);
         rolled.EnsureSuccessStatusCode();
         string before = await client.GetStringAsync("/api/game", _deadline.Token);
         var oldSocket = await ConnectAsync(factory);
@@ -307,7 +309,7 @@ public partial class LobbyApiTests : IDisposable
         using var client = _factory.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/game/new", new { name = "Selvstændigt spil" }, _deadline.Token);
         created.EnsureSuccessStatusCode();
-        using var rolled = await client.PostAsync("/api/game/roll", null, _deadline.Token);
+        using var rolled = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState(), cancellationToken: _deadline.Token);
         rolled.EnsureSuccessStatusCode();
         string before = await client.GetStringAsync("/api/game", _deadline.Token);
         var (socket, connection, code) = await ReadyAsync();

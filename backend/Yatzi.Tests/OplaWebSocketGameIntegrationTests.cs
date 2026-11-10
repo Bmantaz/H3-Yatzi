@@ -81,10 +81,10 @@ public class OplaWebSocketGameIntegrationTests : IDisposable
         var (socket, connection) = await ConnectPairedAsync();
         using (socket)
         {
-            using var rolled = await _client.PostAsync("/api/game/roll", null, _deadline.Token);
+            using var rolled = await GameHttpActions.PostAsync(_client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState(), cancellationToken: _deadline.Token);
             rolled.EnsureSuccessStatusCode();
             await CommandAsync(socket, "HOLD 2", "STATE 1 01000");
-            using var held = await _client.PostAsync("/api/game/hold/4", null, _deadline.Token);
+            using var held = await GameHttpActions.PostAsync(_client, "/api/game/hold/4", _factory.Services.GetRequiredService<GameSession>().GetState(), cancellationToken: _deadline.Token);
             held.EnsureSuccessStatusCode();
             await CommandAsync(socket, "ROLL", "STATE 2 01010");
             var previous = await StateAsync();
@@ -152,7 +152,7 @@ public class OplaWebSocketGameIntegrationTests : IDisposable
     [InlineData("score", "HOLD 2")]
     [InlineData("strike", "ROLL")]
     [InlineData("strike", "HOLD 2")]
-    public async Task RuleRejection_LogsOnceAndKeepsWholeState(string situation, string command)
+    public async Task RuleChecks_RejectIllegalActionsAndAcceptRollInNextTurn(string situation, string command)
     {
         await CreateGameAsync();
         var (socket, connection) = await ConnectPairedAsync();
@@ -166,13 +166,25 @@ public class OplaWebSocketGameIntegrationTests : IDisposable
             }
             if (situation is "score" or "strike")
             {
-                using var scored = await _client.PostAsync($"/api/game/{situation}/chance", null, _deadline.Token);
+                using var scored = await GameHttpActions.PostAsync(_client, $"/api/game/{situation}/chance", _factory.Services.GetRequiredService<GameSession>().GetState(), cancellationToken: _deadline.Token);
                 scored.EnsureSuccessStatusCode();
             }
             var before = await StateAsync();
-            await RejectAsync(socket, command);
-            GameStateAssertions.Equal(before, await StateAsync());
-            Assert.Single(_handlerLogs.Entries);
+            if ((situation is "score" or "strike") && command == "ROLL")
+            {
+                Assert.False(before.TurnCompleted);
+                await CommandAsync(socket, command, "STATE 1 00000");
+                var next = await StateAsync();
+                Assert.Equal(1, next.RollsUsed);
+                Assert.Equal(before.Players[0].Scorecard.Scores["chance"], next.Players[0].Scorecard.Scores["chance"]);
+                Assert.Empty(_handlerLogs.Entries);
+            }
+            else
+            {
+                await RejectAsync(socket, command);
+                GameStateAssertions.Equal(before, await StateAsync());
+                Assert.Single(_handlerLogs.Entries);
+            }
             Assert.Empty(_transportLogs.Entries);
             await CloseAsync(socket, connection);
         }
@@ -267,11 +279,12 @@ public class OplaWebSocketGameIntegrationTests : IDisposable
         var (socket, connection) = await ConnectPairedAsync();
         using (socket)
         {
+            var contextState = await StateAsync();
             var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var httpTasks = Enumerable.Range(0, 2).Select(async _ =>
             {
                 await start.Task;
-                using var response = await _client.PostAsync("/api/game/roll", null, _deadline.Token);
+                using var response = await GameHttpActions.PostAsync(_client, "/api/game/roll", contextState, cancellationToken: _deadline.Token);
                 if (response.IsSuccessStatusCode)
                     return (int?)(await response.Content.ReadFromJsonAsync<GameStateResponse>(_deadline.Token))!.RollsUsed;
                 Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -325,7 +338,7 @@ public class OplaWebSocketGameIntegrationTests : IDisposable
         await socket.SendStarted.Task.WaitAsync(_deadline.Token);
         await _ready.ReadAsync(_deadline.Token);
         Assert.Equal(1, (await StateAsync()).RollsUsed);
-        using var rolled = await _client.PostAsync("/api/game/roll", null, _deadline.Token);
+        using var rolled = await GameHttpActions.PostAsync(_client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState(), cancellationToken: _deadline.Token);
         rolled.EnsureSuccessStatusCode();
         var (other, otherConnection) = await ConnectPairedAsync();
         using (other)

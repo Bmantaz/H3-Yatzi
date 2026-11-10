@@ -2,6 +2,8 @@
 
 > DoD 5. Aftalt i S1.1 af Bjarke, Andreas og Abdi. Ændringer i protokollen laves via PR og godkendes af alle tre.
 
+**Status efter lokal slutkontrol af #44, 10. november 2026:** De eksisterende tekstbeskeder og wireformater er bevaret. Lobbyen udsender nu STATE/WAIT ved turskifte og END ved afslutning; READY giver PAIR, JOINED og aktuel STATE/WAIT/END. Omkamp genbruger spillere og parringer. Rå Oplà-input har fortsat ingen gameId/turnNumber og valideres ved behandling. HTTP bruger sin separate [handlingskontekst](api.md#kommende-kontrakt-for-44). Se [verificeret softwareadfærd og kontrolgrænser](game-lifecycle.md#slutkontrol-af-44-i-trin-8). Software-Oplà-klienter, rigtig Chrome og Arduino-kompilering er kontrolleret; Frederiks brugeroplyste USB-kontrol gentages ikke, og #43 venter. WiFi/USB-koden fra PR #86 er integreret, og den samlede sketch er [kompileret igen før PR](game-lifecycle.md#kontrol-før-pr-efter-integration-af-main). Tekstprotokollen er uændret; denne kontrol er ingen fysisk transporttest.
+
 ## Overblik
 
 - **Én Oplà og én PC pr. spiller.** Spillerne sidder **hver for sig** (forskellige hjem og netværk).
@@ -44,7 +46,7 @@
 - **Hvorfor tunnel:** værtens PC har en privat IP, som de andre ikke kan nå hjemmefra. Tunnelen giver en offentlig HTTPS-adresse uden at åbne routeren. HTTPS er samtidig et krav for Web Serial.
 - **Hvorfor ikke MQTT/TCP:** ville kræve en offentlig broker eller åbne porte. WebSocket kører over den samme tunnel som resten af spillet.
 
-### Rækkefølge og MVP
+### Rækkefølge og MVP (historisk plan)
 
 1. **S1.10 (onsdag):** spike – virker Web Serial + tunnel fra et andet netværk?
 2. **Fredag (S2.8) – MVP:** 2 spillere hjemmefra, hver med sin Oplà over **USB via browser-broen** og tunnelen: ryst, hold, 3 slag, vælg felt, næste spiller.
@@ -52,9 +54,11 @@
 
 ### Oplaen vælger selv (når WiFi er med)
 
-1. Ved opstart: prøv WiFi og WebSocket til serveren (højst ca. 10 sek.).
+Implementeret i [PR #86](https://github.com/Bmantaz/H3-Yatzi/pull/86) og integreret før afleveringen af #44. Uden arduino_secrets.h eller udfyldt SSID/host bruges kun USB. Filen med de faktiske oplysninger er ignoreret af Git.
+
+1. Ved opstart: prøv WiFi og WebSocket til serveren. WiFi-timeout er 10 sekunder; WebSocket-håndtrykkets timeout er 5 sekunder.
 2. Lykkes det, bruges **WiFi**. Ellers **USB** (browser-broen).
-3. Mister den WiFi, skifter den til USB og prøver WiFi igen hvert 5. sek.
+3. Mister den WiFi, skifter den til USB. Nyt WiFi-forsøg sker tidligst efter 5 sekunder og først efter 8 sekunders ro siden seneste afsendelse, så et forsøg ikke påbegyndes midt i spillerens input.
 4. Den sender **kun på én vej ad gangen**, så serveren aldrig får det samme kast to gange.
 
 ### Opsætning

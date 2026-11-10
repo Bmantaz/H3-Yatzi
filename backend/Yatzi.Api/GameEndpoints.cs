@@ -4,8 +4,8 @@ using Yatzi.Core;
 namespace Yatzi.Api;
 
 /// <summary>
-/// HTTP-grænsen mellem frontenden og GameSession. Validerer input og oversætter
-/// resultatet til spiltilstand eller danske JSON-fejl efter docs/api.md.
+/// HTTP-grænsen til spillet. Validerer rute/JSON og lader LobbySession koordinere
+/// handling og controllerkø med GameSession. Returnerer svarkopi eller dansk JSON-fejl.
 /// </summary>
 public static class GameEndpoints
 {
@@ -94,95 +94,96 @@ public static class GameEndpoints
             : Results.Ok(state);
     }
 
-    /// <summary>
-    /// Kaster uden request-body og returnerer 200 med tilstanden eller 404 uden spil.
-    /// Kernens afvisning efter tredje slag eller afsluttet tur bliver 409 med dens danske besked.
-    /// </summary>
-    private static IResult RollGame(GameSession session)
-    {
-        GameStateResponse? state;
-        try
-        {
-            // Fang kun regelafvisningen omkring selve kastet. Andre fejltyper
-            // håndteres af ASP.NET Core og omklassificeres ikke til spilregelbrud.
-            state = session.Roll();
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Results.Conflict(new ApiErrorResponse(exception.Message));
-        }
+    /// <summary>Kaster med obligatorisk kontekst; lobbyen koordinerer STATE uden netværk under lås.</summary>
+    private static Task<IResult> RollGame(HttpRequest request, LobbySession session, CancellationToken cancellationToken) =>
+        HandleActionAsync(request, session, GameActionKind.Roll, cancellationToken);
 
-        return state is null
-            ? Results.NotFound(new ApiErrorResponse(MissingGameMessage))
-            : Results.Ok(state);
-    }
-
-    /// <summary>
-    /// Validerer terningenummer 1–5 og skifter hold/slip uden request-body.
-    /// Returnerer 400 for ugyldigt nummer, 404 uden spil eller 409 ved regelafvisning.
-    /// Et vellykket kald giver 200 med hele spiltilstanden.
-    /// </summary>
-    private static IResult ToggleHold(string n, GameSession session)
+    /// <summary>Ruteinput har forrang for JSON. HTTP bruger nummer 1–5, kernen indeks 0–4.</summary>
+    private static Task<IResult> ToggleHold(string n, HttpRequest request, LobbySession session, CancellationToken cancellationToken)
     {
-        // Tekstparameteren gør, at også fx abc og heltalsoverløb får vores JSON-fejl.
-        // Nummeret kontrolleres først, så ugyldigt input altid giver 400, også uden spil.
         if (!int.TryParse(n, out int number) || number is < 1 or > 5)
-        {
-            return Results.BadRequest(new ApiErrorResponse(InvalidDieNumberMessage));
-        }
-
-        GameStateResponse? state;
-        try
-        {
-            // Kun kommunikationslaget kender numrene 1–5; kernen bruger indeks 0–4.
-            state = session.ToggleHold(number - 1);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return Results.Conflict(new ApiErrorResponse(exception.Message));
-        }
-
-        return state is null
-            ? Results.NotFound(new ApiErrorResponse(MissingGameMessage))
-            : Results.Ok(state);
+            return Task.FromResult<IResult>(Results.BadRequest(new ApiErrorResponse(InvalidDieNumberMessage)));
+        return HandleActionAsync(request, session, GameActionKind.ToggleHold, cancellationToken, number - 1);
     }
 
-    /// <summary>
-    /// Registrerer point fra serverens terninger uden request-body. Klienten vælger kun feltet.
-    /// </summary>
-    private static IResult ScoreGame(string category, GameSession session) =>
-        ChooseField(category, session.Score);
+    /// <summary>Feltvalg sender hverken point eller terninger, kun felt og spil-/tur-/spillerkontekst.</summary>
+    private static Task<IResult> ScoreGame(string category, HttpRequest request, LobbySession session, CancellationToken cancellationToken) =>
+        ChooseField(category, request, session, GameActionKind.Score, cancellationToken);
 
-    /// <summary>
-    /// Stryger et felt uden request-body. Kernen kontrollerer kast og tur og gemmer altid 0.
-    /// </summary>
-    private static IResult StrikeGame(string category, GameSession session) =>
-        ChooseField(category, session.Strike);
+    /// <summary>Strygning bruger samme kontekst og koordinering som pointvalg.</summary>
+    private static Task<IResult> StrikeGame(string category, HttpRequest request, LobbySession session, CancellationToken cancellationToken) =>
+        ChooseField(category, request, session, GameActionKind.Strike, cancellationToken);
 
-    /// <summary>
-    /// Fælles HTTP-grænse for feltvalg: præcist tekst-id før spilopslag, derefter
-    /// 200 med hele tilstanden, 404 uden spil eller 409 ved kernens regelafvisning.
-    /// Andre fejltyper videresendes til ASP.NET Core.
-    /// </summary>
-    private static IResult ChooseField(string category, Func<ScoreCategory, GameStateResponse?> action)
+    private static Task<IResult> ChooseField(string category, HttpRequest request, LobbySession session,
+        GameActionKind action, CancellationToken cancellationToken)
     {
         if (!ScoreCategoryIds.TryParse(category, out var scoreCategory))
-        {
-            return Results.BadRequest(new ApiErrorResponse(InvalidCategoryMessage));
-        }
+            return Task.FromResult<IResult>(Results.BadRequest(new ApiErrorResponse(InvalidCategoryMessage)));
+        return HandleActionAsync(request, session, action, cancellationToken, category: scoreCategory);
+    }
 
-        GameStateResponse? state;
-        try
+    // Format læses før tilstandsopslag. Cancellation videresendes; et allerede accepteret
+    // resultat må ikke erstattes af et senere GET eller genudføres efter en leveringsfejl.
+    private static async Task<IResult> HandleActionAsync(HttpRequest request, LobbySession session,
+        GameActionKind action, CancellationToken cancellationToken, int index = 0, ScoreCategory category = default)
+    {
+        JsonDocument document;
+        try { document = await JsonDocument.ParseAsync(request.Body, cancellationToken: cancellationToken); }
+        catch (JsonException) { return Results.BadRequest(new ApiErrorResponse(InvalidBodyMessage)); }
+        using (document)
         {
-            state = action(scoreCategory);
+            if (!TryReadContext(document.RootElement, out var context, out string message))
+                return Results.BadRequest(new ApiErrorResponse(message));
+            var result = await (action switch
+            {
+                GameActionKind.Roll => session.RollAsync(context, cancellationToken),
+                GameActionKind.ToggleHold => session.ToggleHoldAsync(index, context, cancellationToken),
+                GameActionKind.Score => session.ScoreAsync(category, context, cancellationToken),
+                GameActionKind.Strike => session.StrikeAsync(category, context, cancellationToken),
+                _ => throw new ArgumentOutOfRangeException(nameof(action))
+            });
+            return result.Status switch
+            {
+                GameActionStatus.Accepted => Results.Ok(result.State),
+                GameActionStatus.MissingGame => Results.NotFound(new ApiErrorResponse(result.Message!)),
+                GameActionStatus.InvalidLobbyPlayerId => Results.BadRequest(new ApiErrorResponse(result.Message!)),
+                GameActionStatus.Conflict => Results.Conflict(new ApiErrorResponse(result.Message!)),
+                _ => throw new InvalidOperationException("Ukendt resultat fra spilhandlingen.")
+            };
         }
-        catch (InvalidOperationException exception)
-        {
-            return Results.Conflict(new ApiErrorResponse(exception.Message));
-        }
+    }
 
-        return state is null
-            ? Results.NotFound(new ApiErrorResponse(MissingGameMessage))
-            : Results.Ok(state);
+    // Tilstedeværelse kontrolleres eksplicit: playerId:null er gyldigt format, et manglende
+    // playerId er ikke. TryGetText afviser også ugyldige UTF-16-escapes uden en 500-fejl.
+    private static bool TryReadContext(JsonElement root, out GameActionContext context, out string message)
+    {
+        context = default;
+        message = InvalidBodyMessage;
+        if (root.ValueKind != JsonValueKind.Object) return false;
+        message = "gameId skal være et gyldigt, ikke-tomt GUID.";
+        if (!root.TryGetProperty("gameId", out var game) || !TryGetText(game, out string gameText)
+            || !Guid.TryParse(gameText, out Guid gameId) || gameId == Guid.Empty) return false;
+        message = "turnNumber skal være et positivt heltal.";
+        if (!root.TryGetProperty("turnNumber", out var turn) || turn.ValueKind != JsonValueKind.Number
+            || !turn.TryGetInt32(out int turnNumber) || turnNumber < 1) return false;
+        message = "playerId skal være null eller et gyldigt, ikke-tomt GUID.";
+        if (!root.TryGetProperty("playerId", out var player)) return false;
+        Guid? playerId = null;
+        if (player.ValueKind != JsonValueKind.Null)
+        {
+            if (!TryGetText(player, out string playerText) || !Guid.TryParse(playerText, out Guid parsed) || parsed == Guid.Empty) return false;
+            playerId = parsed;
+        }
+        context = new(gameId, turnNumber, playerId);
+        message = string.Empty;
+        return true;
+    }
+
+    private static bool TryGetText(JsonElement element, out string text)
+    {
+        text = string.Empty;
+        if (element.ValueKind != JsonValueKind.String) return false;
+        try { text = element.GetString()!; return true; }
+        catch (InvalidOperationException) { return false; }
     }
 }

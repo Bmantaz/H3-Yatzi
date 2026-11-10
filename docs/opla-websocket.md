@@ -2,7 +2,7 @@
 
 Denne specifikation fastlægger ansvar, forbindelsestilstande og integrationsgrænser for [#63 – WebSocket /ws/opla](https://github.com/Bmantaz/H3-Yatzi/issues/63). Den beskriver transporten, beskedkontrollen, READY/adgangen, handlerintegrationen og slutkontrollen fra de seks interne steps. Afleveringsstatus, merge og CI dokumenteres i [PR #80](https://github.com/Bmantaz/H3-Yatzi/pull/80).
 
-**Implementeret funktionalitet:** `/ws/opla` fungerer i alle miljøer med eget forbindelsesregister, beskedgrænser, streng READY-genkendelse og serverstyret adgang. Lobbyen giver PAIR, HTTP-join binder spilleren og sender JOINED, og genforbindelse overtager samme identitet med tilbagekaldelse af gammel adgang. Start og READY sender STATE/WAIT. Trin 6 af #59 fører PlayerId gennem handleren til GameSession, så kun første spillers aktuelle Oplà kan kaste/holde efter start. Spilsvar bruger lobbyens ordnede kø. Se [lobbyens aktuelle status](lobby.md). Ekkoet er fjernet. Grænserne er 12 samtidige eller reserverede forbindelser, 256 payload-bytes, 64 Unicode-kodepunkter og 20 tekstbeskeder i et rullende sekund pr. forbindelse. Almindelig HTTP uden opgradering giver 400 i alle miljøer; fuldt register giver 503. PR #80 dokumenterer afleveringsstatus og CI for #63. De historiske resultater nedenfor vedrører #63; lokal kontrol af #59 trin 2 bestod med 814 tests, trin 3 med 889, trin 4 med 946 og trin 5 med 993 samt 0 buildfejl/advarsler.
+**Implementeret funktionalitet efter lokal slutkontrol af #44:** `/ws/opla` beholder alle transportgrænser og samme tekstprotokol: 12 forbindelser/reservationer, 256 payload-bytes, 64 Unicode-kodepunkter og 20 tekstbeskeder pr. rullende sekund. Lobbyen genkontrollerer den aktuelle binding, og GameSession kontrollerer aktiv spiller under låsen. HTTP-handlinger med gameId/turnNumber/playerId bruger samme koordinering og ordnede kø. STATE følger kast/hold, STATE/WAIT følger turskifte, og END følger afslutning. READY giver PAIR, JOINED og aktuel STATE/WAIT/END. Se [implementering og kontroller](game-lifecycle.md#slutkontrol-af-44-i-trin-8). #63/#59-resultaterne nedenfor er historik; nye kontroltal står i livscyklussen. Omkamp og frontend er tilsluttet og kontrolleret i rigtig Chrome samt separate Production-forløb med software-Oplà-klienter. Arduino-kompilering består; fysisk kontrol gentages ikke, og #43 venter.
 
 Den eksisterende [kommunikationsprotokol](protocol.md) og dens beskeder er bevaret. Hvor protokollen angiver omtrentlige ressourcegrænser, fastlægger dette dokument de konkrete værdier til #63.
 
@@ -54,7 +54,7 @@ Lukning markerer straks `Closed` og tømmer bindingen, inden netværkslukningen 
 
 Endpointet læser serverbindingen. LobbySession genkontrollerer den under lobbylåsen, afviser en forkert aktuel forbindelse eller en tilmeldt spiller før start og kalder handleren med PlayerId. Under GameSession-låsen kontrolleres annullering og aktiv spiller sammen med handlingen og svarkopien. Start og overtagelse kan ikke ligge mellem lobbyens genkontrol og handlingen. En lukning efter accepteret kontrol fortryder ingen handling.
 
-Handleren kaldes én gang efter godkendt bindings-/startkontrol med `HandleLine(line, playerId, cancellationToken)`. Det valgfrie id bevarer direkte enkeltspillerbrug; kald uden id kan ikke påvirke et lobbyspil. STATE-formatet er uændret. Første deltager forbliver aktiv; turskifte følger i #44.
+Handleren kaldes én gang efter godkendt bindings-/startkontrol med `HandleLine(line, playerId, cancellationToken)`. Det valgfrie id bevarer direkte enkeltspillerbrug; kald uden id kan ikke påvirke et lobbyspil. STATE-formatet er uændret. Den aktive deltager følger currentPlayer efter hvert HTTP-feltvalg. Ved afsluttet spil afvises yderligere spilhandlinger, og lobbyen sender END.
 
 Handleren kopierer tilstanden under GameSession-låsen. Lobbyspilsvar reserveres i samme kø som JOINED, start og READY, før lobbylåsen slippes. Hver linje sendes som separat tekstbesked gennem registeret og OplaConnection.SendAsync uden tilstandslås. Svaret beholder handlingens eget STATE uden ekstra spilopslag eller broadcast. Gamle batches beholder deres gamle forbindelses-id.
 
@@ -124,7 +124,7 @@ Før step 2 registrerede [Program.cs](../backend/Yatzi.Api/Program.cs) alene spi
 
 ## Dataflow og komponenternes samarbejde
 
-Diagrammet viser den aktuelle integration efter #59 trin 6. Standardforløbet bruger rigtig HTTP-join og lobbystart; kun første spillers aktuelle forbindelse kan udføre spilhandlinger. HTTP og Oplà bruger samme GameSession.
+Diagrammet viser Oplà-input gennem lobbyens koordinering efter #44 trin 5. HTTP-handlinger går også gennem LobbySession, kræver spil-/tur-/spillerkontekst og reserverer STATE/WAIT/END fra samme accepterede svarkopi. Netværksafsendelse sker uden tilstandslås. Transportgrænser og formater er uændrede.
 
 ```text
 Oplà → USB/Web Serial → browser-bro → WSS /ws/opla
@@ -153,7 +153,7 @@ Browser-broen transporterer tekstlinjer. Serveren læser ikke en USB-port. Direk
 
 Transportlaget registrerer forbindelsesstatus og kontrollerer adgang før et handlerkald. Handleren bestemmer spilhandlingen og danner svaret. Hverken en transportfejl, et `READY` eller en genforbindelse opretter eller nulstiller et spil.
 
-Parring er nødvendig, men afgør ikke turen alene. Trin 6 af #59 fører identiteten gennem handleren til GameSession, som afviser øvrige spillere under samme lås som handlingen. Første deltager er aktiv; næste tur og turskifte følger i #44. #63 indførte oprindeligt transporten uden multiplayerregler.
+Parring er nødvendig, men afgør ikke turen alene. Kun den aktive deltagers aktuelle forbindelse kan udføre ROLL/HOLD efter start. Afvisning ændrer intet. Rå tekst indeholder ikke gameId eller turnNumber og valideres ved behandling; HTTP-handlinger har derimod den eksplicitte kontekst. #63 indførte oprindeligt transporten uden multiplayerregler.
 
 ## Forbindelsestilstande og adgang
 
@@ -237,18 +237,19 @@ Normal lukning, kabeludfald via browser-broen, netværksfejl og serverens annull
 
 ## Aktuelt lobbyforløb
 
-Efter trin 6 af #59 er standardforløbet i alle miljøer:
+Efter #44 er standardforløbet i alle miljøer:
 
 1. Oplà-forbindelsen accepteres og får sin egen session.
 2. Et gyldigt READY registreres, og LobbySession svarer med `PAIR cccc` uden spillerbinding.
 3. HTTP-join validerer navn/kode, binder spiller-id og sender JOINED. Lobbylæsning viser deltageren og dens aktuelle forbindelsesstatus.
 4. Gentaget READY giver samme PAIR-kode og derefter JOINED, hvis tilmeldt. En ny forbindelse med kendt kode overtager tilknytningen; gammel adgang tilbagekaldes straks, og gammel lukning afventes parallelt med den nye afsendelse. Uden kendt kode udstedes en ledig PAIR.
-5. `POST /api/lobby/start` opretter 1–6 deltagere, sender STATE til første spiller og WAIT til resten og beskytter spillet mod `/api/game/new`. READY efter start tilføjer aktuel STATE/WAIT efter PAIR og JOINED.
-6. Første spillers aktuelle Oplà kan kaste/holde; øvrige deltagere afvises uden svar. Spillerkontrol og handling udføres under samme sessionslås. Tilmeldte koder og spiltilstand bevares ved genforbindelse uden nyt join eller genafspilning.
+5. `POST /api/lobby/start` opretter 1–6 deltagere, sender STATE til første spiller og WAIT til resten og beskytter spillet mod `/api/game/new`. READY efter start tilføjer aktuel STATE/WAIT/END efter PAIR og JOINED.
+6. Den aktive spillers aktuelle Oplà kan kaste/holde; øvrige deltagere afvises uden svar. HTTP-score/strike registrerer feltet og giver næste spiller tur eller afslutter spillet. Spillerkontrol og handling udføres under samme sessionslås. Tilmeldte koder og spiltilstand bevares ved genforbindelse uden nyt join eller genafspilning.
+7. Efter afslutning kan enhver deltager kalde omkampsruten, når alle deltagere er forbundne. Nyt gameId og friske tavler oprettes samlet, og første spiller får STATE 0 00000, resten WAIT.
 
 Kontrolleret testparring bevarer selvstændig enkeltspillerintegration. Produktionsserveren binder lobbyspillere gennem HTTP-join; før start kan de ikke ændre et eksisterende enkeltspillerspil. Et afsluttet lobbyfeltvalg låser stadig turen uden næste spiller.
 
-Den manuelle prøve kan efter start sende ROLL fra første spiller og forvente STATE 1 00000, derefter HOLD 2 og STATE 1 01000. Samme kommandoer fra øvrige spillere skal hverken give svar eller ændre GET /api/game. Genforbind med første spillers kode: forvent PAIR, JOINED og STATE 1 01000 uden ekstra kast; næste HOLD 2 slipper terningen. Øvrige spillere får WAIT. Fysisk ryst/touch, USB/WiFi og tunnel verificeres fortsat i #43; næste tur følger i #44.
+Den manuelle prøve kan efter start sende ROLL fra første spiller og forvente STATE 1 00000, derefter HOLD 2 og STATE 1 01000. Samme kommandoer fra øvrige spillere skal hverken give svar eller ændre GET /api/game. Genforbind med første spillers kode: forvent PAIR, JOINED og STATE 1 01000 uden ekstra kast; næste HOLD 2 slipper terningen. Øvrige spillere får WAIT. Fortsæt prøven med et kontekstbærende HTTP-feltvalg: forvent STATE til næste spiller og WAIT til resten, END efter sidste felt og frisk STATE/WAIT efter accepteret omkamp. Softwareforløbene er kontrolleret i #44; fysisk ryst/touch, USB/WiFi og tunnel håndteres særskilt i #43.
 
 Automatiske tests kan bruge testværtens servicecontainer til kontrolleret serverintern parring og en testimplementering af READY-behandlingen. Det kræver hverken fysisk hardware eller en offentlig testkommando. Produktionsklienten får ikke adgang til denne testopsætning. Den firecifrede kode er parring og indfører ikke et login- eller JWT-system.
 
@@ -293,6 +294,6 @@ Følgende er acceptscenarier for hele #63. Transport, tegn-/rategrænser, linjef
 
 Funktionstests følger implementeringen i hvert step. Step 1 var alene en dokumentationsleverance; de efterfølgende steps har de automatiske kontroller beskrevet øverst. Testresultaterne og de historiske ekkoprøver dokumenterer ikke fysisk Oplà-integration.
 
-**Implementering og lokal slutkontrol er gennemført** med endpointet i alle miljøer, forbindelsernes levetid, beskedkontroller, READY, serverintern spillerbinding, adgangskontrol og handler-/STATE-integration gennem den fælles `GameSession`. Ekkoet er fjernet. PR #80 dokumenterer den samlede aflevering og CI-resultater før og efter merge. #59 implementerer den rigtige lobbyparring, og #44 tilføjer turkontrol og multiplayer. Færdigkravet til #63 er merge og grøn CI på main.
+**Implementering og lokal slutkontrol er gennemført** med endpointet i alle miljøer, forbindelsernes levetid, beskedkontroller, READY, serverintern spillerbinding, adgangskontrol og handler-/STATE-integration gennem den fælles `GameSession`. Ekkoet er fjernet. PR #80 dokumenterer den samlede aflevering og CI-resultater før og efter merge. #59 leverer lobbyparring, og #44 leverer turkontrol og multiplayer; den aktuelle lokale slutkontrol står i livscyklussen. Færdigkravet til #63 er merge og grøn CI på main.
 
 **#63 er først afleveret**, når alle implementeringssteps og relevante tests er gennemført, ændringerne er merget gennem en PR med `Closes #63`, og CI er grøn. Der bruges én branch og én samlet PR for opgaven. Step 1 afslutter ikke #59, #44 eller den fysiske integrationstest.

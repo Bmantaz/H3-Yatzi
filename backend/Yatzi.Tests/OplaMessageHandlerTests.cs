@@ -444,7 +444,7 @@ public class OplaMessageHandlerTests
     [InlineData(true, "HOLD 3")]
     [InlineData(true, "HOLD 4")]
     [InlineData(true, "HOLD 5")]
-    public void CompletedTurn_LogsOneWarningAndNewGameReusesHandler(bool strike, string line)
+    public void NextTurn_AcceptsRollRejectsHoldBeforeRollAndNewGameReusesHandler(bool strike, string line)
     {
         var session = new GameSession();
         session.NewGame("Andreas");
@@ -456,13 +456,22 @@ public class OplaMessageHandlerTests
         var logger = new RecordingLogger();
         var handler = new OplaMessageHandler(session, logger);
 
-        Assert.Empty(handler.HandleLine(line));
-
-        GameStateAssertions.Equal(before, session.GetState()!);
-        var entry = Assert.Single(logger.Entries);
-        Assert.Equal(LogLevel.Warning, entry.Level);
-        Assert.Contains(line, entry.Message);
-        Assert.Contains("Turen er afsluttet. Der kan ikke udføres flere handlinger i denne tur.", entry.Message);
+        Assert.False(before.TurnCompleted);
+        if (line == "ROLL")
+        {
+            Assert.Equal("STATE 1 00000", Assert.Single(handler.HandleLine(line)));
+            Assert.Equal(before.Players[0].Scorecard.Scores["chance"], session.GetState()!.Players[0].Scorecard.Scores["chance"]);
+            Assert.Empty(logger.Entries);
+        }
+        else
+        {
+            Assert.Empty(handler.HandleLine(line));
+            GameStateAssertions.Equal(before, session.GetState()!);
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(LogLevel.Warning, entry.Level);
+            Assert.Contains(line, entry.Message);
+            Assert.Contains("Hold/slip er kun tilladt efter første eller andet kast.", entry.Message);
+        }
 
         session.NewGame("Frederik");
 
@@ -471,7 +480,7 @@ public class OplaMessageHandlerTests
         Assert.Equal("Frederik", replacement.Players[0].Name);
         Assert.All(replacement.Players[0].Scorecard.Scores.Values, score => Assert.Null(score));
         Assert.False(replacement.TurnCompleted);
-        Assert.Single(logger.Entries);
+        Assert.Equal(line == "ROLL" ? 0 : 1, logger.Entries.Count);
     }
 
     private static void AssertInvalidInputWarning(RecordingLogger logger, int? expectedLength)

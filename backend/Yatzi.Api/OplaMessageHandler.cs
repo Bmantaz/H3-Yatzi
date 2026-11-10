@@ -5,6 +5,7 @@ namespace Yatzi.Api;
 /// Deler GameSession med HTTP-API'et og er uafhængig af netværk og hardware.
 /// /ws/opla leverer serverens PlayerId gennem lobbyens koordinering; GameSession
 /// kontrollerer identitet sammen med handlingen. Lobbyen køer svar til samme Oplà.
+/// Rå Oplà-linjer har ingen spil-/turnøgle; HTTP kræver derimod sin egen kontekst.
 /// </summary>
 public sealed class OplaMessageHandler
 {
@@ -96,7 +97,8 @@ public sealed class OplaMessageHandler
     /// <summary>
     /// Omsætter handlingens øjebliksbillede til STATE r hhhhh efter protokollen.
     /// Hold-markeringerne følger terning 1–5; terningeværdierne vises gennem HTTP-API'et.
-    /// Lobbyen genbruger samme formattering ved start og genforbindelse.
+    /// Lobbyen genbruger samme formattering ved start, HTTP-handlinger og aktiv READY;
+    /// den vælger selv WAIT eller END til de øvrige tilstande.
     /// </summary>
     internal static string FormatState(GameStateResponse state)
     {
