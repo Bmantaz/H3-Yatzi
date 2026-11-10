@@ -17,3 +17,9 @@ void linkDebug(const String& text);
 // Returnerer true og udfylder line, når en hel linje er modtaget (uden linjeskift).
 // Blokerer aldrig. Linjer over 64 tegn kasseres.
 bool linkReceive(String& line);
+
+// S3.9: kald først i loop() – holder WiFi/WebSocket i live og vælger USB eller WiFi.
+void linkUpdate();
+
+// true når beskederne går over WiFi, false når de går over USB.
+bool linkUsesWifi();

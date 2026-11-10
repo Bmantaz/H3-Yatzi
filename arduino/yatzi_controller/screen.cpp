@@ -23,11 +23,18 @@ static void printCentered(const String& text, uint8_t maxSize, int16_t y, uint16
   carrier.display.print(text);
 }
 
+// S3.9: lille "USB"/"WiFi" nederst, så man kan se hvilken vej Oplaen snakker med serveren.
+static void drawTransport() {
+  carrier.display.fillRect(60, 190, 120, 24, ST77XX_BLACK);
+  printCentered(linkUsesWifi() ? "WiFi" : "USB", 2, 192, ST77XX_WHITE);
+}
+
 // Lille overskrift øverst og stor tekst i midten.
 static void draw(const String& title, const String& big, uint16_t color) {
   carrier.display.fillScreen(ST77XX_BLACK);
   printCentered(title, 3, 70, ST77XX_WHITE);
   printCentered(big, 5, 115, color);
+  drawTransport();
 }
 
 void screenSetup() {
@@ -63,4 +70,9 @@ void showTurn(int rolls) {
 void showEnd() {
   draw("Spillet er", "Slut", ST77XX_CYAN);
   linkDebug("skærm: Slut");
+  drawTransport();
+}
+
+void showTransport() {
+  drawTransport();
 }
