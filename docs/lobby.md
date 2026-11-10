@@ -8,6 +8,8 @@ Denne specifikation beskriver den aftalte løsning til [#59 – Lobby og parring
 
 **Historisk leverance af #59: trin 1–8 er gennemført.** Leverancen og dens merge-/CI-status dokumenteres i [PR #81](https://github.com/Bmantaz/H3-Yatzi/pull/81). READY/PAIR, GET/join, genforbindelse og spillestart for 1–6 deltagere fungerer. Første spillers aktuelle Oplà kan kaste og holde efter start; øvrige spillere afvises. STATE/WAIT genskabes ved READY, og `/api/game/new` kan ikke overskrive lobbyspillet. Færdigkriteriet for #59 er merge og grøn CI på main. Turskifte og næste tur følger i #44.
 
+**Kontrol før PR:** Nyeste main med WiFi/USB fra PR #86 er integreret uden ændring af HTTP-kontrakterne. Se [nye kontrolresultater](game-lifecycle.md#kontrol-før-pr-efter-integration-af-main); tidligere resultater nedenfor bevares som historik.
+
 ## Grundlag og afgrænsning
 
 - **Grundlag før implementering, kontrolleret 8. november 2026:** #59 var åben og tildelt Andreas. Afhængighederne #36 og #63 var lukkede, og der var ingen tekniske blokeringer for at begynde.

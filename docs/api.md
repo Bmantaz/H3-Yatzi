@@ -8,6 +8,8 @@ Denne kontrakt beskriver de seks HTTP-kald til oprettelse, kast, hold/slip og po
 
 **Status ved slutkontrollen af #40:** Alle seks endpoints er implementeret, gennemgået og automatisk HTTP-testet. Release-buildet bestod med 0 fejl og 0 advarsler, og alle 612 tests bestod. Afleveringsstatus og CI dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76). Frontenden bruger fortsat mock-data; den grafiske pointtavle følger i #41. Næste tur og multiplayer følger i #44.
 
+**Kontrol før PR:** Nyeste main med WiFi/USB fra PR #86 er integreret uden ændring af HTTP-kontrakterne. Se [nye kontrolresultater](game-lifecycle.md#kontrol-før-pr-efter-integration-af-main); tidligere resultater nedenfor bevares som historik.
+
 ## Ansvar og dataflow
 
 **Historisk udvidelse i #59 trin 5–6:** POST /api/lobby/start opretter 1–6 deltagere i samme GameSession med egne pointtavler og første deltager som aktiv. Spil-JSON bruger samme felter som nedenfor. HTTP-handlinger påvirker første deltager, og /api/game/new giver 409 efter lobbystart. Første spillers aktuelle Oplà kan også kaste/holde gennem servervalideret PlayerId; HTTP tilføjes ingen identitetsfelter eller automatiske WebSocket-udsendelser. Se [lobbykontrakten](lobby.md). Turskifte følger i #44. De historiske #40-resultater ovenfor bevares.

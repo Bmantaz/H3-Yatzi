@@ -2,7 +2,7 @@
 
 Planen dækker [#44 – S3.1](https://github.com/Bmantaz/H3-Yatzi/issues/44): et spil for 1–6 spillere, næste spiller efter feltvalg, STATE/WAIT/END, spilafslutning, vinder inklusive uafgjort og mulighed for et nyt spil.
 
-**Status 10. november 2026:** Alle lokale trin 1–8 er gennemført og kontrolleret. Rigtig Chrome, Production-forløb med 1/2/6 deltagere, 39 frontendtests, 1.379 backendtests og Arduino-kompilering af fællessketchen består. Release-build har 0 fejl/0 advarsler, og dokumentation, JSON-eksempler, links og samlet diff er kontrolleret. Arbejdsbranchen er `S3-1-turskifte` fra main på `a92c8a9`. GitHub-aflevering er senere arbejde.
+**Status 10. november 2026:** Alle lokale trin 1–8 er gennemført og kontrolleret. Rigtig Chrome, Production-forløb med 1/2/6 deltagere, 39 frontendtests, 1.379 backendtests og Arduino-kompilering af fællessketchen består. Release-build har 0 fejl/0 advarsler, og dokumentation, JSON-eksempler, links og samlet diff er kontrolleret. Arbejdsbranchen `S3-1-turskifte` blev oprettet fra main på `a92c8a9` og har nu integreret WiFi/USB fra PR #86 på `db3abab`. Den nye [kontrol før PR](#kontrol-før-pr-efter-integration-af-main) består med samme testantal. Aflevering sker via PR; merge og grøn CI på main håndteres særskilt.
 
 ## Grundlag og afgrænsning
 
@@ -142,11 +142,11 @@ Tests tilføjes sammen med den funktionalitet, de kontrollerer. Eksisterende tes
 
 **Færdigt når:** #44 er implementeret og lokalt verificeret med en gennemgået diff og korrekt dokumentation. Resultaterne rapporteres, inden der gås videre til aflevering.
 
-**Implementering og kontrol:** Se [slutkontrol, krav/test-matrix og kontrolgrænser](#slutkontrol-af-44-i-trin-8). Trin 7 og 8 er markeret færdige efter bestået browser- og slutkontrol. GitHub-aflevering er ikke udført.
+**Implementering og kontrol:** Se [slutkontrol, krav/test-matrix og kontrolgrænser](#slutkontrol-af-44-i-trin-8). Trin 7 og 8 er markeret færdige efter bestået browser- og slutkontrol. Se den efterfølgende [kontrol før PR](#kontrol-før-pr-efter-integration-af-main).
 
 ## Senere aflevering
 
-Den lokale implementering afslutter ikke GitHub-issuet. #44 har som færdigkrav en PR med `Closes #44`, merge til main og grøn CI. Commit, push, PR og merge er senere handlinger; denne planoprettelse udfører ingen af dem.
+Den lokale implementering afslutter ikke GitHub-issuet. #44 har som færdigkrav en PR med `Closes #44`, merge til main og grøn CI. Afleveringen sker fra `S3-1-turskifte` til `main` med en almindelig PR. PR-beskrivelsen dokumenterer den seneste commit og CI-status. Der bruges ingen auto-merge eller manuel issue-lukning; en senere merge og grøn CI på main afslutter færdigkravet.
 
 ## Implementeret kerne i trin 2
 
@@ -426,6 +426,20 @@ Den lokale original med noCase er byte-for-byte bevaret med SHA-256 `25db97529a5
 **Endelig diff- og dokumentationskontrol:** Alle 36 JSON-eksempler og 234 lokale links inklusive ankre i README og de syv berørte dokumenter består. Streng UTF-8, whitespace og git diff --check består. Hashkontrol mod starten af trin 8 viser præcis ni ændrede eksisterende filer: CI-workflowet og de otte dokumenter. De øvrige 95 baselinefiler, inklusive al programkode, alle tests fra tidligere trin og lokal noCase, er byte-for-byte bevaret. Der er ingen nye kildefiler, nye npm-/NuGet-pakker eller staged ændringer i trin 8. Krav/test-matrixen og den gennemgåede diff giver grundlag for at markere de otte lokale trin færdige. Midlertidige profiler, hjælpescripts, resultater og skærmbilleder ligger alene under den ignorerede TestResults-mappe. Testprocesserne er stoppet.
 
 #44 bidrager til projektets gameplay loop og livscyklus. Den lokale softwarekontrol lukker ikke andre DoD-issues, fysisk integration i #43 eller aflevering på GitHub. Der udføres ingen staging, commit, push, PR, merge eller manuel issue-lukning i trin 8. Den senere fællesleverance kræver fortsat PR med Closes #44, merge og grøn CI.
+
+## Kontrol før PR efter integration af main
+
+**Ny kontrol 10. november 2026:** Funktionscommit `66a86c1` samler de 49 delte kode-, test-, dokumentations- og CI-filer fra trin 1–8. Merge-commit `59b633b` integrerer `origin/main` på `db3abab`, herunder WiFi med USB som fallback fra [PR #86](https://github.com/Bmantaz/H3-Yatzi/pull/86). Integrationen krævede ingen rettelser i spillets programkode. Frontendjobbet og ArduinoHttpClient er begge bevaret i CI. Tidligere kontrolresultater ovenfor er historik fra før integrationen.
+
+- **Automatisk:** Ny JavaScript-syntakskontrol og alle 39 frontendtests består. Nyt Release-build har 0 fejl og 0 advarsler; alle 1.379 backendtests består uden fejlede eller oversprungne tests. De 12 miljø-/spillerantal-forløb består fortsat. Resultater er gemt lokalt som TestResults/pr44-frontend.tap og pr44-all.trx.
+- **Rigtig lokal server:** Production-prøver med rigtige HTTP-/WebSocket-klienter og 1, 2 og 6 deltagere består igen to hele spil og to omkampe pr. prøve. Slutturnumrene er 15/30/90; vinderindeks er henholdsvis [0], [0,1] og [5]. Gamle handlinger afvises, samtidige omkampe giver én accept, og parringer bevares. Resultat: TestResults/pr44-production.json.
+- **Rigtig Chrome:** Den godkendte headless/CDP-reservevej med isoleret profil består igen enkeltspiller, ens navne og eget id, aktiv/ventende/tilskuer, rotation, slutresultat, uafgjort, frakobling/genforbindelse, omkamp fra anden deltager, gammel polling/409, vedvarende dansk fejl, genindlæsning og 390 px visning. Der er 0 JavaScript-undtagelser og 0 console.error. Den konkrete prøve gav 20 point i enkeltspiller og 22 point til vinderindeks 0 i første lobbyspil; næste spil endte [0,1] på 0. Skærmbillederne er visuelt gennemgået. Resultat og billeder: TestResults/pr44-browser.json og pr44-browser-*.png.
+- **Arduino-kompilering:** En midlertidig kopi af den integrerede fællessketch med withCase og uden arduino_secrets.h består til arduino:samd:mkrwifi1010. Det eksisterende Arduino CLI 1.5.1, SAMD 1.8.14, Arduino_MKRIoTCarrier 2.1.0, WiFiNINA 2.1.1 og ArduinoHttpClient 0.6.2 bruges. Forbruget er 106.640 bytes programhukommelse (40 %) og 7.988 bytes globale variable (24 %). Ingen biblioteker er installeret/opgraderet, og intet er uploadet. Log: TestResults/pr44-arduino.log.
+- **Personlig tilpasning:** Kun noCase-hunken blev gemt midlertidigt og gendannet efter merge. Den er stadig uden for commits, og den delte sketch bruger withCase. Filhashen er ændret som forventet af WiFi-integrationen; den personlige ændring er fortsat kun caseindstilling og kommentar.
+
+**Ny diff- og dokumentationskontrol:** Alle 36 JSON-eksempler og 240 lokale links inklusive ankre består. De 49 delte filer er gennemgået mod origin/main; Arduino-kode, hemmeligheder, testprofiler og TestResults indgår ikke i PR-diffen. Streng UTF-8, whitespace og git diff --check består. Den lokale noCase-hunk er identisk med før integrationen; filens nye SHA-256 er 59e20646331fa6bf592fa01bf9bc5eebc9054a9ad4aa4d294db8628cc23c9b94. Kontrolresultat: TestResults/pr44-audit.json.
+
+Krav/test-matrixen ovenfor gælder fortsat og er underbygget af disse nye kørsler. Testprocesserne er stoppet. DOM-fixture, rigtig browser, software-Oplà-klienter og kompilering er forskellige kontrolformer; de dokumenterer ingen ny fysisk WiFi-, USB- eller tunneltest. Frederiks brugeroplyste fysiske kontrol gentages ikke, og #43 venter. GitHub-PR'ens aktuelle CI-resultater dokumenteres i selve PR'en; lokale resultater erstatter ikke GitHub-CI.
 
 ## Aftalt specifikation for #44
 
