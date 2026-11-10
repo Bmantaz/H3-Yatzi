@@ -535,7 +535,7 @@ public class OplaWebSocketEndpointTests : IDisposable
         using var client = _factory.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/game/new", new { name = "Andreas" }, _deadline.Token);
         created.EnsureSuccessStatusCode();
-        using var rolled = await client.PostAsync("/api/game/roll", null, _deadline.Token);
+        using var rolled = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState(), cancellationToken: _deadline.Token);
         rolled.EnsureSuccessStatusCode();
         string before = await client.GetStringAsync("/api/game", _deadline.Token);
         using var socket = await ConnectAsync();

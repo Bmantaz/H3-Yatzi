@@ -349,6 +349,7 @@ public class GameTests
         Assert.Equal(0, game.Bonus);
         Assert.Equal(0, game.Total);
         Assert.False(game.TurnCompleted);
+        Assert.False(game.IsScorecardComplete);
         Assert.Empty(game.PossibleScores);
         Assert.Equal(0, random.CallCount);
     }
@@ -711,6 +712,242 @@ public class GameTests
         Assert.Empty(freshGame.PossibleScores);
     }
 
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    public void StartNextTurn_AfterFieldChoiceResetsDiceButPreservesPointsAndViews(int rollCount, bool strike)
+    {
+        var game = CreateRolledGame(rollCount, out var random);
+        var diceView = game.Dice;
+        var heldView = game.Held;
+        var scoresView = game.Scores;
+        var possibleScores = game.PossibleScores;
+        if (strike) game.Strike(ScoreCategory.Fives);
+        else game.Score(ScoreCategory.Fives);
+        var completed = CaptureState(game, random);
+
+        game.StartNextTurn();
+
+        Assert.Same(diceView, game.Dice);
+        Assert.Same(heldView, game.Held);
+        Assert.Same(scoresView, game.Scores);
+        Assert.All(diceView, die => Assert.Equal(0, die));
+        Assert.All(heldView, held => Assert.False(held));
+        Assert.Equal(0, game.RollsUsed);
+        Assert.False(game.TurnCompleted);
+        Assert.False(game.IsScorecardComplete);
+        Assert.Empty(game.PossibleScores);
+        Assert.Equal(completed.Scores.OrderBy(entry => entry.Key), game.Scores.OrderBy(entry => entry.Key));
+        Assert.Equal((completed.UpperSum, completed.Bonus, completed.Total), (game.UpperSum, game.Bonus, game.Total));
+        Assert.Equal(completed.RandomCalls, random.CallCount);
+        Assert.Equal(15, possibleScores[ScoreCategory.Fives]);
+        Assert.Equal(19, possibleScores[ScoreCategory.Chance]);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void StartNextTurn_DuringOpenTurnRejectsWithoutChangingState(int rollCount)
+    {
+        var random = new SequenceRandom(Enumerable.Repeat(2, 15).ToArray());
+        var game = new Game(random);
+        for (int i = 0; i < rollCount; i++) game.Roll();
+        var expected = CaptureState(game, random);
+
+        var exception = Assert.Throws<InvalidOperationException>(game.StartNextTurn);
+
+        Assert.Equal("Den aktuelle tur skal afsluttes, før en ny tur kan starte.", exception.Message);
+        AssertStateUnchanged(game, random, expected);
+    }
+
+    [Fact]
+    public void StartNextTurn_RepeatedBeforeNewFieldChoiceRejectsWithoutChangingState()
+    {
+        var game = CreateRolledGame(1, out var random);
+        game.Strike(ScoreCategory.Chance);
+        game.StartNextTurn();
+        var expected = CaptureState(game, random);
+
+        var exception = Assert.Throws<InvalidOperationException>(game.StartNextTurn);
+
+        Assert.Equal("Den aktuelle tur skal afsluttes, før en ny tur kan starte.", exception.Message);
+        AssertStateUnchanged(game, random, expected);
+    }
+
+    [Fact]
+    public void NextTurn_RequiresRollPreservesLockedFieldsAndAllowsThreeFreshRolls()
+    {
+        var random = new SequenceRandom(
+            1, 2, 3, 4, 5,
+            6, 5, 4, 3, 2,
+            1, 2, 3, 4, 5,
+            2, 3, 4, 5, 6);
+        var game = new Game(random);
+        game.Roll();
+        for (int i = 0; i < 5; i++) game.ToggleHold(i);
+        game.Score(ScoreCategory.Chance);
+        game.StartNextTurn();
+        var fresh = CaptureState(game, random);
+
+        Action[] beforeRoll =
+        {
+            () => game.ToggleHold(0),
+            () => game.Score(ScoreCategory.Ones),
+            () => game.Strike(ScoreCategory.Ones)
+        };
+        foreach (var action in beforeRoll)
+        {
+            Assert.Throws<InvalidOperationException>(action);
+            AssertStateUnchanged(game, random, fresh);
+        }
+
+        // Alle terninger var holdt i den gamle tur. Den nye tur skal alligevel
+        // bruge fem nye værdier fra samme, uændrede tilfældighedskilde.
+        game.Roll();
+        Assert.Equal(new[] { 6, 5, 4, 3, 2 }, game.Dice);
+        Assert.Equal(1, game.RollsUsed);
+        Assert.Equal(10, random.CallCount);
+        Assert.Equal(15, game.Scores[ScoreCategory.Chance]);
+        Assert.Equal(14, game.PossibleScores.Count);
+        Assert.False(game.PossibleScores.ContainsKey(ScoreCategory.Chance));
+        var rolled = CaptureState(game, random);
+        foreach (var action in new Action[] { () => game.Score(ScoreCategory.Chance), () => game.Strike(ScoreCategory.Chance) })
+        {
+            var exception = Assert.Throws<InvalidOperationException>(action);
+            Assert.Equal("Pointfeltet er allerede udfyldt.", exception.Message);
+            AssertStateUnchanged(game, random, rolled);
+        }
+
+        game.ToggleHold(1);
+        Assert.True(game.Held[1]);
+        game.ToggleHold(1);
+        Assert.False(game.Held[1]);
+        game.Roll();
+        game.Roll();
+        Assert.Equal(3, game.RollsUsed);
+        Assert.Equal(20, random.CallCount);
+        var lastRoll = CaptureState(game, random);
+        Assert.Throws<InvalidOperationException>(game.Roll);
+        Assert.Throws<InvalidOperationException>(() => game.ToggleHold(0));
+        AssertStateUnchanged(game, random, lastRoll);
+
+        game.Score(ScoreCategory.Ones);
+        Assert.Equal(0, game.Scores[ScoreCategory.Ones]);
+        Assert.Equal(15, game.Scores[ScoreCategory.Chance]);
+        Assert.True(game.TurnCompleted);
+    }
+
+    [Fact]
+    public void StartNextTurn_PreservesEarnedBonusWithoutAccumulatingItAgain()
+    {
+        var random = new SequenceRandom(
+            5, 5, 5, 5, 5,
+            6, 6, 6, 6, 6,
+            4, 4, 1, 1, 1);
+        var game = new Game(random);
+        game.Roll();
+        game.Score(ScoreCategory.Fives);
+        game.StartNextTurn();
+        game.Roll();
+        game.Score(ScoreCategory.Sixes);
+        game.StartNextTurn();
+        game.Roll();
+        game.Score(ScoreCategory.Fours);
+        var scores = game.Scores.ToDictionary(entry => entry.Key, entry => entry.Value);
+
+        game.StartNextTurn();
+
+        Assert.Equal((63, 50, 113), (game.UpperSum, game.Bonus, game.Total));
+        Assert.Equal(scores.OrderBy(entry => entry.Key), game.Scores.OrderBy(entry => entry.Key));
+        Assert.False(game.IsScorecardComplete);
+        Assert.Equal(15, random.CallCount);
+        var expected = CaptureState(game, random);
+        for (int read = 0; read < 3; read++) AssertStateUnchanged(game, random, expected);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Game_FifteenTurnsFillScorecardAndRejectFurtherTurnWithoutChangingState(bool strike)
+    {
+        var random = new SequenceRandom(Enumerable.Range(0, 75).Select(i => i % 6 + 1).ToArray());
+        var game = new Game(random);
+        var categories = Enum.GetValues<ScoreCategory>();
+        Assert.False(game.IsScorecardComplete);
+        for (int i = 0; i < categories.Length; i++)
+        {
+            game.Roll();
+            if (strike) game.Strike(categories[i]);
+            else game.Score(categories[i]);
+            Assert.True(game.TurnCompleted);
+            Assert.Equal(i + 1, game.Scores.Values.Count(score => score.HasValue));
+            Assert.Equal(i == categories.Length - 1, game.IsScorecardComplete);
+            if (i < categories.Length - 1)
+            {
+                game.StartNextTurn();
+                Assert.False(game.TurnCompleted);
+                Assert.Empty(game.PossibleScores);
+            }
+        }
+
+        Assert.True(game.IsScorecardComplete);
+        Assert.Equal(75, random.CallCount);
+        if (strike) Assert.All(game.Scores.Values, score => Assert.Equal(0, score));
+        var completed = CaptureState(game, random);
+        var exception = Assert.Throws<InvalidOperationException>(game.StartNextTurn);
+        Assert.Equal("Pointtavlen er fuld. Der kan ikke startes en ny tur.", exception.Message);
+        AssertStateUnchanged(game, random, completed);
+        Action[] afterCompletion =
+        {
+            game.Roll,
+            () => game.ToggleHold(0),
+            () => game.Score(ScoreCategory.Chance),
+            () => game.Strike(ScoreCategory.Chance)
+        };
+        foreach (var action in afterCompletion)
+        {
+            Assert.Throws<InvalidOperationException>(action);
+            AssertStateUnchanged(game, random, completed);
+        }
+    }
+
+    [Fact]
+    public void NextTurns_PreserveEarlierPossibleScoresAndDoNotAffectAnotherGame()
+    {
+        var random = new SequenceRandom(1, 2, 3, 4, 5, 6, 6, 6, 6, 6);
+        var game = new Game(random);
+        var other = CreateRolledGame(1, out var otherRandom);
+        other.Strike(ScoreCategory.Ones);
+        var expectedOther = CaptureState(other, otherRandom);
+        var scoresView = game.Scores;
+        game.Roll();
+        var firstPossible = game.PossibleScores;
+        game.Score(ScoreCategory.Chance);
+        game.StartNextTurn();
+        game.Roll();
+        var secondPossible = game.PossibleScores;
+        game.Score(ScoreCategory.Yatzy);
+        game.StartNextTurn();
+
+        Assert.Same(scoresView, game.Scores);
+        Assert.Equal(15, scoresView[ScoreCategory.Chance]);
+        Assert.Equal(50, scoresView[ScoreCategory.Yatzy]);
+        Assert.Equal(65, game.Total);
+        Assert.Equal(15, firstPossible[ScoreCategory.Chance]);
+        Assert.Equal(0, firstPossible[ScoreCategory.Yatzy]);
+        Assert.False(secondPossible.ContainsKey(ScoreCategory.Chance));
+        Assert.Equal(50, secondPossible[ScoreCategory.Yatzy]);
+        Assert.Empty(game.PossibleScores);
+        Assert.Equal(10, random.CallCount);
+        AssertStateUnchanged(other, otherRandom, expectedOther);
+    }
+
     /// <summary>
     /// Opretter referencekastet 5,5,5,2,2 med en holdt terning efter 1–3 kast.
     /// Faste værdier for de øvrige terninger gør turens slutresultat ens i alle tre tilfælde.
@@ -740,6 +977,7 @@ public class GameTests
         game.Bonus,
         game.Total,
         game.TurnCompleted,
+        game.IsScorecardComplete,
         game.PossibleScores.ToDictionary(entry => entry.Key, entry => entry.Value),
         random.CallCount);
 
@@ -759,6 +997,7 @@ public class GameTests
         Assert.Equal(expected.Bonus, game.Bonus);
         Assert.Equal(expected.Total, game.Total);
         Assert.Equal(expected.TurnCompleted, game.TurnCompleted);
+        Assert.Equal(expected.IsScorecardComplete, game.IsScorecardComplete);
         Assert.Equal(expected.PossibleScores.OrderBy(entry => entry.Key), game.PossibleScores.OrderBy(entry => entry.Key));
         Assert.Equal(expected.RandomCalls, random.CallCount);
     }
@@ -772,6 +1011,7 @@ public class GameTests
         int Bonus,
         int Total,
         bool TurnCompleted,
+        bool IsScorecardComplete,
         Dictionary<ScoreCategory, int> PossibleScores,
         int RandomCalls);
 
@@ -804,6 +1044,4 @@ public class GameTests
             return _values.Dequeue();
         }
     }
-
-    // TODO: tests af næste tur, flere spillere og spillets afslutning i opgave #44.
 }

@@ -46,6 +46,7 @@ public class GameOplaIdentityTests : IDisposable
 
     [Theory]
     [InlineData(1)]
+    [InlineData(2)]
     [InlineData(6)]
     public void ActiveIdentity_UsesCoreRulesAndKeepsOtherScorecards(int count)
     {
@@ -64,16 +65,48 @@ public class GameOplaIdentityTests : IDisposable
         Assert.Empty(_handler.HandleLine("ROLL", id));
         Assert.Empty(_handler.HandleLine("HOLD 1", id));
         Assert.Equal(before, Snapshot());
-        _game.Strike(ScoreCategory.Chance);
+        var next = _game.Strike(ScoreCategory.Chance)!;
         before = Snapshot();
-        Assert.Empty(_handler.HandleLine("ROLL", id));
-        Assert.Empty(_handler.HandleLine("HOLD 1", id));
-        Assert.Equal(before, Snapshot());
-        var state = _game.GetState()!;
-        Assert.True(state.TurnCompleted);
-        Assert.Equal(0, state.CurrentPlayer);
-        Assert.All(state.Players.Skip(1), player => Assert.All(player.Scorecard.Scores.Values, Assert.Null));
+        Assert.False(next.TurnCompleted);
+        Assert.Equal(1 % count, next.CurrentPlayer);
+        Assert.Equal(0, next.RollsUsed);
+        Assert.Equal(new int[5], next.Dice);
+        Assert.Equal(new bool[5], next.Held);
+        if (count > 1)
+        {
+            Assert.Empty(_handler.HandleLine("ROLL", id));
+            Assert.Empty(_handler.HandleLine("HOLD 1", id));
+            Assert.Equal(before, Snapshot());
+        }
+        Guid nextId = players[next.CurrentPlayer].Id;
+        Assert.Equal("STATE 1 00000", Assert.Single(_handler.HandleLine("ROLL", nextId)));
+        Assert.Equal("STATE 1 10000", Assert.Single(_handler.HandleLine("HOLD 1", nextId)));
+        Assert.All(next.Players.Skip(1), player => Assert.All(player.Scorecard.Scores.Values, Assert.Null));
         Assert.All(rolled.Players, player => Assert.All(player.Scorecard.Scores.Values, Assert.Null));
+    }
+
+    [Fact]
+    public void IdentityValidation_FollowsRotationEvenWhenPlayersHaveEqualNames()
+    {
+        _game.NewLobbyGame(_players);
+        for (int turn = 0; turn < 3; turn++)
+        {
+            int current = turn % 2;
+            Guid id = _players[current].Id;
+            string before = Snapshot();
+            foreach (Guid? wrong in new Guid?[] { null, Guid.Empty, Guid.NewGuid(), _players[1 - current].Id })
+            {
+                Assert.Throws<InvalidOperationException>(() => _game.RollFromOpla(wrong));
+                Assert.Throws<InvalidOperationException>(() => _game.ToggleHoldFromOpla(0, wrong));
+                Assert.Equal(before, Snapshot());
+            }
+            Assert.Equal("STATE 1 00000", Assert.Single(_handler.HandleLine("ROLL", id)));
+            Assert.Equal("STATE 1 01000", Assert.Single(_handler.HandleLine("HOLD 2", id)));
+            _game.Strike(turn < 2 ? ScoreCategory.Chance : ScoreCategory.Ones);
+            Assert.Equal(1 - current, _game.GetState()!.CurrentPlayer);
+        }
+        Assert.Equal(0, _game.GetState()!.Players[0].Scorecard.Scores["chance"]);
+        Assert.Equal(0, _game.GetState()!.Players[1].Scorecard.Scores["chance"]);
     }
 
     [Theory]
@@ -136,16 +169,23 @@ public class GameOplaIdentityTests : IDisposable
     }
 
     [Theory]
-    [InlineData("ROLL")]
-    [InlineData("HOLD 1")]
-    public void CancelledAction_PreservesStateWithoutWarning(string command)
+    [InlineData("ROLL", false)]
+    [InlineData("HOLD 1", false)]
+    [InlineData("ROLL", true)]
+    [InlineData("HOLD 1", true)]
+    public void CancelledAction_PreservesStateWithoutWarning(string command, bool afterRotation)
     {
         _game.NewLobbyGame(_players);
+        if (afterRotation)
+        {
+            _game.Roll();
+            _game.Strike(ScoreCategory.Chance);
+        }
         _game.Roll();
         string before = Snapshot();
         using var stopped = new CancellationTokenSource();
         stopped.Cancel();
-        Assert.ThrowsAny<OperationCanceledException>(() => _handler.HandleLine(command, _players[0].Id, stopped.Token));
+        Assert.ThrowsAny<OperationCanceledException>(() => _handler.HandleLine(command, _players[afterRotation ? 1 : 0].Id, stopped.Token));
         Assert.Equal(before, Snapshot());
         Assert.Empty(_logs.Entries);
     }

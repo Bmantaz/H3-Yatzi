@@ -198,7 +198,7 @@ public static class OplaWebSocketEndpoints
                     connection.ConnectionId, codePoints);
                 continue;
             }
-            // Lobbyen genkontrollerer bindingen og ordner accepten med start og
+            // Lobbyen genkontrollerer bindingen og ordner accepten med HTTP-handlinger, start og
             // overtagelse. Handleren fører PlayerId til GameSession, som kontrollerer
             // spiller og handling samlet. Svaret køes før netværksafventning.
             if (!await lobbySession.HandleGameInputAsync(connection.ConnectionId, playerId, text,

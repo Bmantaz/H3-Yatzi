@@ -2,11 +2,15 @@
 
 Denne kontrakt beskriver de seks HTTP-kald til oprettelse, kast, hold/slip og pointvalg. Opgave #40 udvider svarene fra #33 med spillerens pointtavle, mulige point og turstatus. Pointreglerne er beskrevet i [scoring.md](scoring.md).
 
+**Læsestatus efter #44 trin 8, 10. november 2026:** Afsnittene nedenfor frem til [#44-kontrakten](#kommende-kontrakt-for-44) bevarer grundlaget før #44 og de historiske #33/#40-kontroller. På `a92c8a9` var kun første spiller aktiv, og første feltvalg låste turen. Frontendens request-tilpasning til #44 er implementeret i trin 7 og automatisk testet; rigtig browserkontrol er nu gennemført i trin 8.
+
+**Aktuel lokal adfærd efter trin 8:** Roll, hold, score og strike kræver nu JSON med gameId, turnNumber og playerId i begge spilformer. Sessionen validerer kontekst og handling atomisk. Lobbyen køer STATE efter HTTP-kast/hold, STATE/WAIT ved næste tur og END ved afslutning; READY genskaber samme status. De 11 spilfelter fra trin 4 bevares. Afvisninger bruger det aftalte danske message-format og 400/404/409. POST /api/lobby/restart starter nu omkamp med samme deltagere og parringer efter afslutning, når alle er forbundne. Frontenden sender nu korrekt kontekst, fastholder joinedPlayerId, bruger serverens slutresultat og tilslutter omkampsknappen. De tidligere bodyløse browserkald er erstattet. Se [implementering og samlet lokal slutkontrol](game-lifecycle.md#slutkontrol-af-44-i-trin-8).
+
 **Status ved slutkontrollen af #40:** Alle seks endpoints er implementeret, gennemgået og automatisk HTTP-testet. Release-buildet bestod med 0 fejl og 0 advarsler, og alle 612 tests bestod. Afleveringsstatus og CI dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76). Frontenden bruger fortsat mock-data; den grafiske pointtavle følger i #41. Næste tur og multiplayer følger i #44.
 
 ## Ansvar og dataflow
 
-**Aktuel udvidelse i #59 trin 5–6:** POST /api/lobby/start opretter 1–6 deltagere i samme GameSession med egne pointtavler og første deltager som aktiv. Spil-JSON bruger samme felter som nedenfor. HTTP-handlinger påvirker første deltager, og /api/game/new giver 409 efter lobbystart. Første spillers aktuelle Oplà kan også kaste/holde gennem servervalideret PlayerId; HTTP tilføjes ingen identitetsfelter eller automatiske WebSocket-udsendelser. Se [lobbykontrakten](lobby.md). Turskifte følger i #44. De historiske #40-resultater ovenfor bevares.
+**Historisk udvidelse i #59 trin 5–6:** POST /api/lobby/start opretter 1–6 deltagere i samme GameSession med egne pointtavler og første deltager som aktiv. Spil-JSON bruger samme felter som nedenfor. HTTP-handlinger påvirker første deltager, og /api/game/new giver 409 efter lobbystart. Første spillers aktuelle Oplà kan også kaste/holde gennem servervalideret PlayerId; HTTP tilføjes ingen identitetsfelter eller automatiske WebSocket-udsendelser. Se [lobbykontrakten](lobby.md). Turskifte følger i #44. De historiske #40-resultater ovenfor bevares.
 
 Frontenden sender handlinger til `Yatzi.Api`, som bruger reglerne i `Yatzi.Core.Game` og returnerer spiltilstanden som JSON. Frontenden viser derefter svaret. Terningeværdier og antal brugte slag bestemmes af serveren. Feltvalg går gennem `GameSession` til `Game → Scorecard → ScoreCalculator`. Sessionen bruger samme lås til turkontrol, registrering og kopiering af hele svaret. Arrays, spilleroplysninger og begge dictionaries er selvstændige kopier i hvert svar.
 
@@ -569,3 +573,197 @@ Eksemplet ovenfor og fejltabellen er dækket af [HTTP-testene](../backend/Yatzi.
 Kør hele testsuiten fra repositoryets rod med `dotnet test H3Yatzi.sln --configuration Release`.
 
 Kontrakten er klar til deling med Frederik, men hans accept og den faktiske tilkobling er endnu ikke verificeret. Backendens automatiske tests omfatter ikke fysisk hardware eller et helt spil med flere ture. Afleveringsstatus og CI dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76).
+
+## Kommende kontrakt for #44
+
+**Aftalt i trin 1 – implementeret og lokalt slutkontrolleret gennem trin 8.** GitHub-aflevering med PR, merge og grøn CI følger senere. Spilsvar, HTTP-kontekst, rotation, slutstatus, vindere og controllerudsendelser nedenfor er nu implementeret og automatisk kontrolleret. `/new` bruger fortsat navn, og første lobbystart ingen body. Omkamp er implementeret med den aftalte gameId-/playerId-body, og frontenden bruger nu denne kontrakt. Eksemplerne er kontrakt-/acceptgrundlag med illustrative GUID'er, ikke optagede netværksforløb. Se [arbejdsplanen og kontrolresultaterne](game-lifecycle.md#slutkontrol-af-44-i-trin-8).
+
+### Ruter og request-body
+
+Alle JSON-requests bruger `Content-Type: application/json`. Rutenavne, terningenumre 1–5, de 15 præcise felt-id'er og pointregler bevares.
+
+| Endpoint | Request-body efter trin 6 | Svar ved accept |
+|---|---|---|
+| `POST /api/game/new` | Uændret: `{"name":"Andreas"}`. | 200 med et nyt enkeltspillerspil og nyt gameId. Må fortsat erstatte enkeltspiller, men aldrig et startet lobbyspil. |
+| `GET /api/game` | Ingen. | 200 med den aktuelle, kopierede spiltilstand; 404 uden spil. |
+| `POST /api/game/roll` | Handlingskonteksten nedenfor. | 200 med samme tur efter kastet. |
+| `POST /api/game/hold/{n}` | Handlingskonteksten nedenfor. | 200 med samme tur efter hold/slip. |
+| `POST /api/game/score/{category}` | Handlingskonteksten nedenfor. | 200 efter registrering og automatisk turskifte eller spilafslutning. |
+| `POST /api/game/strike/{category}` | Handlingskonteksten nedenfor. | 200 efter registrering af 0 og automatisk turskifte eller spilafslutning. |
+| `POST /api/lobby/start` | Ingen. | 200 ved første start; kan ikke starte omkamp. |
+| `POST /api/lobby/restart` | Afsluttet gameId og tilmeldt playerId; begge ikke-tomme GUID-strenge. | 200 med nyt spil-id og friske tavler hos de samme deltagere. Se [omkampskontrakten](lobby.md#omkamp). |
+
+**Implementeret kompatibilitetsændring i trin 5:** Roll, hold, score og strike kræver JSON-body i begge spilformer. Der er ingen gammel enkeltspillervej uden body. Backendtests og frontend sender nu eksplicit kontekst. Den midlertidige inkompatibilitet frem til trin 6 er dermed fjernet. `/new` og første lobbystart bevarer deres requests.
+
+Handlingskontekst for en lobbyspiller, eksempelvis til `POST /api/game/roll`:
+
+```json
+{
+  "gameId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "turnNumber": 1,
+  "playerId": "11111111-1111-4111-8111-111111111111"
+}
+```
+
+Alle tre felter er obligatoriske. gameId skal være tekst, der kan parses som en ikke-tom GUID. turnNumber skal være et positivt JSON-heltal inden for Int32. playerId skal være null eller tekst med en ikke-tom GUID. Ukendte JSON-felter ignoreres som i de eksisterende requests. I lobbyspil kræves en GUID; i enkeltspiller kræves null:
+
+```json
+{
+  "gameId": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "turnNumber": 1,
+  "playerId": null
+}
+```
+
+Konteksten skal komme fra den tilstand, handlingen vedrører. Browseren fastholder den ved et klik og ved eventuel bekræftelse af 0 point; den må ikke erstatte den med en nyere turs kontekst, før requesten sendes. playerId kommer fra join-svarets [joinedPlayerId](lobby.md#kommende-kontrakt-for-44), ikke fra navn eller et gæt om den aktive spiller.
+
+Spil-id og turnummer sammenlignes med servertilstanden under samme lås som spillerkontrol, regelkontrol, spilændring og svarkopi. Feltvalg bruger serverens aktuelle terninger; klienten sender hverken terningeværdier eller point. Flere handlinger i samme tur bruger samme turnummer. Turnummeret er ikke et id for hvert kast, og gentagne roll/hold-requests inden for samme tur er ikke generelt idempotente.
+
+### Udvidet spiltilstand
+
+**Implementeret efter trin 4 og bevaret gennem trin 6:** De 11 svarfelter og reglerne i tabellen er aktive ved `/api/game/new`, GET, accepterede spilhandlinger, første lobbystart og omkamp.
+
+Alle accepterede spilhandlinger samt lobbystart og omkamp returnerer det samme udvidede format. Hele svaret kopieres fra den accepterede tilstand, så senere handlinger ikke kan ændre det under serialisering eller afsendelse. Felter serialiseres fortsat som camelCase; feltrækkefølgen i JSON er ikke betydningsbærende.
+
+| Felt | Betydning efter #44 |
+|---|---|
+| `players` | Samme format som hidtil, med 1–6 separate pointtavler i fast deltagerrækkefølge. Ingen nye id-felter her. |
+| `currentPlayer` | Gyldigt indeks for den aktive spiller; efter afslutning sidste spillers indeks. |
+| `dice`, `held`, `rollsUsed`, `possibleScores` | Tilhører den tur, currentPlayer viser. Frisk tur har fem 0'er, fem false, 0 slag og tomt possibleScores. |
+| `turnCompleted` | False for en aktiv tur, også i svaret efter et normalt feltvalg, som allerede viser næste tur. True ved spilafslutning. |
+| `gameId` | Nyt servergenereret, ikke-tomt GUID ved oprettelse, første lobbystart og omkamp. |
+| `turnNumber` | Globalt turnummer fra 1; øges ved turskifte, også når én spiller fortsætter selv. Sidste feltvalg øger det ikke. |
+| `gameCompleted` | True først, når alle spillernes 15 felter er udfyldt. |
+| `winnerIndices` | Tomt under spillet; efter afslutning alle vindernes indeks i stigende deltagerrækkefølge. |
+
+Et fuldt start-JSON efter lobbystart med Andreas og Frederik:
+
+```json
+{
+  "players": [
+    {
+      "name": "Andreas",
+      "scorecard": {
+        "scores": {
+          "ones": null, "twos": null, "threes": null,
+          "fours": null, "fives": null, "sixes": null,
+          "onePair": null, "twoPairs": null, "threeOfAKind": null,
+          "fourOfAKind": null, "smallStraight": null, "largeStraight": null,
+          "fullHouse": null, "chance": null, "yatzy": null
+        },
+        "upperSum": 0, "bonus": 0, "total": 0
+      }
+    },
+    {
+      "name": "Frederik",
+      "scorecard": {
+        "scores": {
+          "ones": null, "twos": null, "threes": null,
+          "fours": null, "fives": null, "sixes": null,
+          "onePair": null, "twoPairs": null, "threeOfAKind": null,
+          "fourOfAKind": null, "smallStraight": null, "largeStraight": null,
+          "fullHouse": null, "chance": null, "yatzy": null
+        },
+        "upperSum": 0, "bonus": 0, "total": 0
+      }
+    }
+  ],
+  "currentPlayer": 0,
+  "dice": [0, 0, 0, 0, 0],
+  "held": [false, false, false, false, false],
+  "rollsUsed": 0,
+  "possibleScores": {},
+  "turnCompleted": false,
+  "gameId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "turnNumber": 1,
+  "gameCompleted": false,
+  "winnerIndices": []
+}
+```
+
+Efter et normalt feltvalg viser `players` både det netop gemte felt og de øvrige uændrede pointtavler. currentPlayer og turnNumber er allerede skiftet; terninger, hold og slag viser næste spillers friske tur. Se [acceptscenarier A–C](game-lifecycle.md#konkrete-acceptscenarier) for to spillere, rotation og enkeltspiller.
+
+<a id="eksempel-paa-afsluttet-spil"></a>
+
+### Eksempel på afsluttet spil
+
+Forudsætningen er [scenarie D](game-lifecycle.md#d-sidste-feltvalg-og-uafgjort): Ved tur 30 mangler Frederik kun chance og har kastet fem 1'ere. `POST /api/game/score/chance` med gameId nedenfor, turnNumber 30 og playerId `22222222-2222-4222-8222-222222222222` giver HTTP 200 med følgende fulde svar:
+
+```json
+{
+  "players": [
+    {
+      "name": "Andreas",
+      "scorecard": {
+        "scores": {
+          "ones": 0, "twos": 0, "threes": 0,
+          "fours": 0, "fives": 0, "sixes": 0,
+          "onePair": 0, "twoPairs": 0, "threeOfAKind": 0,
+          "fourOfAKind": 0, "smallStraight": 0, "largeStraight": 0,
+          "fullHouse": 0, "chance": 8, "yatzy": 0
+        },
+        "upperSum": 0, "bonus": 0, "total": 8
+      }
+    },
+    {
+      "name": "Frederik",
+      "scorecard": {
+        "scores": {
+          "ones": 0, "twos": 0, "threes": 0,
+          "fours": 0, "fives": 0, "sixes": 0,
+          "onePair": 0, "twoPairs": 0, "threeOfAKind": 0,
+          "fourOfAKind": 0, "smallStraight": 0, "largeStraight": 0,
+          "fullHouse": 0, "chance": 5, "yatzy": 0
+        },
+        "upperSum": 0, "bonus": 0, "total": 5
+      }
+    }
+  ],
+  "currentPlayer": 1,
+  "dice": [1, 1, 1, 1, 1],
+  "held": [false, false, false, false, false],
+  "rollsUsed": 1,
+  "possibleScores": {},
+  "turnCompleted": true,
+  "gameId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "turnNumber": 30,
+  "gameCompleted": true,
+  "winnerIndices": [0]
+}
+```
+
+0 betyder udfyldt ligesom 5 eller 8. Det er totalen inklusive bonus, der afgør resultatet. Ved to Alex-spillere med hver 5 point er winnerIndices `[0,1]`; ved ét afsluttet enkeltspillerspil er det `[0]`. Frontenden bruger serverens gameCompleted og winnerIndices; den kan sortere en kopi af spillerne til ranglisten uden at ændre deres indeks i den oprindelige liste.
+
+<a id="fejl-i-den-kommende-kontrakt"></a>
+### Fejl efter trin 5
+
+Alle afvisninger bevarer spil, point og tur. Fejl bruger `application/json` med dansk `message`; der returneres ikke en spiltilstand i fejlbodyen.
+
+| Situation | Status | Aftalt message |
+|---|---|---|
+| Body mangler, er ugyldig JSON eller er ikke et objekt | 400 | Requesten skal indeholde et gyldigt JSON-objekt. |
+| gameId mangler eller er ikke tekst med en gyldig, ikke-tom GUID | 400 | gameId skal være et gyldigt, ikke-tomt GUID. |
+| turnNumber mangler eller er ikke et positivt Int32-heltal | 400 | turnNumber skal være et positivt heltal. |
+| playerId mangler eller er hverken null eller tekst med en gyldig, ikke-tom GUID | 400 | playerId skal være null eller et gyldigt, ikke-tomt GUID. |
+| playerId er null i lobbyspil | 400 | playerId skal være et gyldigt, ikke-tomt GUID i et lobbyspil. |
+| Ugyldigt terningnummer eller felt-id | 400 | De eksisterende danske beskeder ovenfor bevares. |
+| Gyldigt input, men intet spil er oprettet | 404 | Der er ikke oprettet et spil. Start et nyt spil først. |
+| gameId matcher ikke det aktuelle spil | 409 | Spillet er ikke længere aktuelt. Hent spiltilstanden igen. |
+| playerId er en GUID i enkeltspiller | 409 | Enkeltspillerhandlinger skal bruge playerId null. |
+| playerId findes ikke blandt lobbyspillets deltagere | 409 | Spilleren deltager ikke i dette lobbyspil. |
+| Spillet er afsluttet | 409 | Spillet er afsluttet. Start et nyt spil for at fortsætte. |
+| turnNumber matcher ikke den aktuelle tur | 409 | Turen er ikke længere aktuel. Hent spiltilstanden igen. |
+| Lobbyspilleren er ikke den aktive spiller | 409 | Det er ikke denne spillers tur. |
+| Spilregel afviser kast, hold eller feltvalg | 409 | De eksisterende kerneregler og deres danske beskeder bevares, eksempelvis tre brugte slag eller et udfyldt felt. |
+
+Fejlprioriteten fastlægges som: ruteinput → JSON/kontekstformat i rækkefølgen gameId, turnNumber, playerId → manglende spil → null-playerId i lobby → gameId-match → spillerrelation → spilafslutning → turnummer → aktiv spiller → kernens regler. Formatkontrol sker før opslag, mens de tilstandsafhængige kontroller og handlingen udføres samlet. GET uden spil kræver ingen kontekst og giver fortsat 404.
+
+Omkamp bruger sin egen [fejltabel og fejlprioritet](lobby.md#fejl-ved-omkamp): playerId skal være en GUID, og turnNumber kræves ikke. HTTP-laget mapper LobbyRestartStatus til 200/404/409 efter formatkontrollen. Et afvist forsøg nulstiller hverken spil, lobby eller beskedkøer.
+
+### Samtidighed, beskeder og frontend
+
+Feltvalg og turskifte er én accepteret ændring. En konkurrerende request med gammel tur rammer ikke den nye spiller, heller ikke hvis denne allerede har kastet. Et nyt gameId afskærer gamle requests fra en tidligere omkamp. HTTP og Oplà bruger samme spilsession; lobbyen koordinerer afsendelsesrækkefølgen som beskrevet i [livscyklussen](game-lifecycle.md#komponentansvar-og-ordnede-beskeder).
+
+Accepterede HTTP-kast og hold/slip sender samme STATE til den aktive Oplà som tilsvarende Oplà-input. Feltvalg sender ny STATE/WAIT eller END. Et sendesvigt ændrer ikke den accepterede spiltilstand eller et ellers aktivt requests 200-resultat; afsendelsesfejl og senere request-annullering medfører ingen automatisk genafspilning. READY læser den aktuelle status. Der tilføjes ikke gameId eller turnNumber til Oplàens tekstprotokol.
+
+Backendens reservehandlinger kræver den aktive spillerrelation, men ikke en forbundet Oplà. De 11 svarfelter, kontekstkontrol og controllerbeskeder er testet efter trin 5. Frontenden sender nu konteksten fra handlingens snapshot og henter ny visning ved 409 uden automatisk at gentage handlingen med nyere kontekst. Feltknapper fastholder deres viste turs kontekst, også gennem 0-point-bekræftelsen, som sender strike. Spil-id og turnummer bruges også til at afvise gammel visning og stoppe gammel animation. De 39 Node-tests og alle 1.379 backendtests består. Rigtig Chrome med separat profil og den aftalte CDP-reservevej er nu kontrolleret med enkeltspiller, to ens navne, tilskuer, vindere, omkamp, forsinket polling og 390 px layout. Separate Production-prøver med rigtige HTTP-/WebSocket-klienter består for 1, 2 og 6 deltagere. De historiske #33/#40-testtal ovenfor dokumenterer ikke #44.

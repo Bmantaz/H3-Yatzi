@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Yatzi.Api;
 
 namespace Yatzi.Tests;
 
@@ -95,10 +97,10 @@ public class GameApiTests : IDisposable
         using var client = _factory.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/game/new", new { name = "Andreas" });
         await AssertStartStateAsync(created, "Andreas");
-        using var rolled = await client.PostAsync("/api/game/roll", null);
+        using var rolled = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
         await AssertGameStateAsync(rolled, "Andreas", 1);
         bool[] held = { false, true, false, false, false };
-        using var heldResponse = await client.PostAsync("/api/game/hold/2", null);
+        using var heldResponse = await GameHttpActions.PostAsync(client, "/api/game/hold/2", _factory.Services.GetRequiredService<GameSession>().GetState());
         string heldJson = await AssertGameStateAsync(heldResponse, "Andreas", 1, held);
 
         using var response = await PostNewGameBodyAsync(client, body);
@@ -113,7 +115,7 @@ public class GameApiTests : IDisposable
     {
         using var client = _factory.CreateClient();
 
-        using var response = await client.PostAsync("/api/game/roll", null);
+        using var response = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
 
         await AssertErrorAsync(response, HttpStatusCode.NotFound, MissingGameMessage);
         using var stateResponse = await client.GetAsync("/api/game");
@@ -130,7 +132,7 @@ public class GameApiTests : IDisposable
 
         for (int roll = 1; roll <= 3; roll++)
         {
-            using var response = await client.PostAsync("/api/game/roll", null);
+            using var response = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
             string rolledJson = await AssertGameStateAsync(response, "Andreas", roll);
 
             foreach (var reader in new[] { client, otherClient })
@@ -150,11 +152,11 @@ public class GameApiTests : IDisposable
         string lastAcceptedJson = string.Empty;
         for (int roll = 1; roll <= 3; roll++)
         {
-            using var accepted = await client.PostAsync("/api/game/roll", null);
+            using var accepted = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
             lastAcceptedJson = await AssertGameStateAsync(accepted, "Andreas", roll);
         }
 
-        using var response = await client.PostAsync("/api/game/roll", null);
+        using var response = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
 
         await AssertErrorAsync(response, HttpStatusCode.Conflict, MaxRollsMessage);
         using var stateResponse = await client.GetAsync("/api/game");
@@ -170,12 +172,12 @@ public class GameApiTests : IDisposable
         var held = new bool[5];
         for (int roll = 1; roll <= 3; roll++)
         {
-            using var response = await client.PostAsync("/api/game/roll", null);
+            using var response = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
             await AssertGameStateAsync(response, "Andreas", roll, held);
             if (roll == 1)
             {
                 held[1] = true;
-                using var heldResponse = await client.PostAsync("/api/game/hold/2", null);
+                using var heldResponse = await GameHttpActions.PostAsync(client, "/api/game/hold/2", _factory.Services.GetRequiredService<GameSession>().GetState());
                 await AssertGameStateAsync(heldResponse, "Andreas", roll, held);
             }
         }
@@ -185,7 +187,7 @@ public class GameApiTests : IDisposable
         string freshJson = await AssertStartStateAsync(replacement, "Frederik");
         using var freshState = await client.GetAsync("/api/game");
         Assert.Equal(freshJson, await AssertStartStateAsync(freshState, "Frederik"));
-        using var nextRoll = await client.PostAsync("/api/game/roll", null);
+        using var nextRoll = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
         string rolledJson = await AssertGameStateAsync(nextRoll, "Frederik", 1);
         using var rolledState = await client.GetAsync("/api/game");
         Assert.Equal(rolledJson, await AssertGameStateAsync(rolledState, "Frederik", 1));
@@ -200,13 +202,14 @@ public class GameApiTests : IDisposable
         await AssertStartStateAsync(created, "Andreas");
 
         var clients = new[] { firstClient, secondClient };
+        var contextState = _factory.Services.GetRequiredService<GameSession>().GetState();
         var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var requests = Enumerable.Range(0, 5).Select(async index =>
         {
             // Alle fem opgaver venter på samme start, så vi sender konkurrerende
             // requests frem for at vente på ét kast ad gangen.
             await start.Task;
-            return await clients[index % clients.Length].PostAsync("/api/game/roll", null);
+            return await GameHttpActions.PostAsync(clients[index % clients.Length], "/api/game/roll", contextState);
         }).ToArray();
 
         start.SetResult(true);
@@ -269,7 +272,7 @@ public class GameApiTests : IDisposable
         await AssertStartStateAsync(created, "Andreas");
         for (int roll = 1; roll <= rollsUsed; roll++)
         {
-            using var response = await client.PostAsync("/api/game/roll", null);
+            using var response = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
             await AssertGameStateAsync(response, "Andreas", roll);
         }
 
@@ -278,16 +281,16 @@ public class GameApiTests : IDisposable
         int otherNumber = number % 5 + 1;
         var held = new bool[5];
         held[otherNumber - 1] = true;
-        using var otherHeld = await client.PostAsync($"/api/game/hold/{otherNumber}", null);
+        using var otherHeld = await GameHttpActions.PostAsync(client, $"/api/game/hold/{otherNumber}", _factory.Services.GetRequiredService<GameSession>().GetState());
         string beforeJson = await AssertGameStateAsync(otherHeld, "Andreas", rollsUsed, held);
 
         held[number - 1] = true;
-        using var heldResponse = await client.PostAsync($"/api/game/hold/{number}", null);
+        using var heldResponse = await GameHttpActions.PostAsync(client, $"/api/game/hold/{number}", _factory.Services.GetRequiredService<GameSession>().GetState());
         string heldJson = await AssertGameStateAsync(heldResponse, "Andreas", rollsUsed, held);
         Assert.Equal(ReadDice(beforeJson), ReadDice(heldJson));
 
         held[number - 1] = false;
-        using var released = await client.PostAsync($"/api/game/hold/{number}", null);
+        using var released = await GameHttpActions.PostAsync(client, $"/api/game/hold/{number}", _factory.Services.GetRequiredService<GameSession>().GetState());
         string releasedJson = await AssertGameStateAsync(released, "Andreas", rollsUsed, held);
         Assert.Equal(beforeJson, releasedJson);
         using var stateResponse = await client.GetAsync("/api/game");
@@ -307,7 +310,7 @@ public class GameApiTests : IDisposable
     {
         using var client = _factory.CreateClient();
 
-        using var response = await client.PostAsync($"/api/game/hold/{number}", null);
+        using var response = await GameHttpActions.PostAsync(client, $"/api/game/hold/{number}", _factory.Services.GetRequiredService<GameSession>().GetState());
 
         await AssertErrorAsync(response, HttpStatusCode.BadRequest, InvalidDieNumberMessage);
         using var stateResponse = await client.GetAsync("/api/game");
@@ -328,13 +331,13 @@ public class GameApiTests : IDisposable
         using var client = _factory.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/game/new", new { name = "Andreas" });
         await AssertStartStateAsync(created, "Andreas");
-        using var rolled = await client.PostAsync("/api/game/roll", null);
+        using var rolled = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
         await AssertGameStateAsync(rolled, "Andreas", 1);
         bool[] held = { false, false, false, false, true };
-        using var heldResponse = await client.PostAsync("/api/game/hold/5", null);
+        using var heldResponse = await GameHttpActions.PostAsync(client, "/api/game/hold/5", _factory.Services.GetRequiredService<GameSession>().GetState());
         string beforeJson = await AssertGameStateAsync(heldResponse, "Andreas", 1, held);
 
-        using var response = await client.PostAsync($"/api/game/hold/{number}", null);
+        using var response = await GameHttpActions.PostAsync(client, $"/api/game/hold/{number}", _factory.Services.GetRequiredService<GameSession>().GetState());
 
         await AssertErrorAsync(response, HttpStatusCode.BadRequest, InvalidDieNumberMessage);
         using var stateResponse = await client.GetAsync("/api/game");
@@ -346,7 +349,7 @@ public class GameApiTests : IDisposable
     {
         using var client = _factory.CreateClient();
 
-        using var response = await client.PostAsync("/api/game/hold/2", null);
+        using var response = await GameHttpActions.PostAsync(client, "/api/game/hold/2", _factory.Services.GetRequiredService<GameSession>().GetState());
 
         await AssertErrorAsync(response, HttpStatusCode.NotFound, MissingGameMessage);
         using var stateResponse = await client.GetAsync("/api/game");
@@ -364,12 +367,12 @@ public class GameApiTests : IDisposable
         var held = new bool[5];
         for (int roll = 1; roll <= rollsUsed; roll++)
         {
-            using var response = await client.PostAsync("/api/game/roll", null);
+            using var response = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
             await AssertGameStateAsync(response, "Andreas", roll, held);
             if (roll == 1)
             {
                 held[4] = true;
-                using var heldResponse = await client.PostAsync("/api/game/hold/5", null);
+                using var heldResponse = await GameHttpActions.PostAsync(client, "/api/game/hold/5", _factory.Services.GetRequiredService<GameSession>().GetState());
                 await AssertGameStateAsync(heldResponse, "Andreas", roll, held);
             }
         }
@@ -377,7 +380,7 @@ public class GameApiTests : IDisposable
         using var beforeResponse = await client.GetAsync("/api/game");
         string beforeJson = await AssertGameStateAsync(beforeResponse, "Andreas", rollsUsed, held);
 
-        using var rejected = await client.PostAsync("/api/game/hold/2", null);
+        using var rejected = await GameHttpActions.PostAsync(client, "/api/game/hold/2", _factory.Services.GetRequiredService<GameSession>().GetState());
 
         await AssertErrorAsync(rejected, HttpStatusCode.Conflict, HoldNotAllowedMessage);
         using var afterResponse = await client.GetAsync("/api/game");
@@ -391,26 +394,26 @@ public class GameApiTests : IDisposable
         using var otherClient = _factory.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/game/new", new { name = "Andreas" });
         await AssertStartStateAsync(created, "Andreas");
-        using var firstRoll = await client.PostAsync("/api/game/roll", null);
+        using var firstRoll = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
         string firstJson = await AssertGameStateAsync(firstRoll, "Andreas", 1);
 
         bool[] held = { false, true, false, false, false };
-        using var heldResponse = await client.PostAsync("/api/game/hold/2", null);
+        using var heldResponse = await GameHttpActions.PostAsync(client, "/api/game/hold/2", _factory.Services.GetRequiredService<GameSession>().GetState());
         string heldJson = await AssertGameStateAsync(heldResponse, "Andreas", 1, held);
         Assert.Equal(ReadDice(firstJson), ReadDice(heldJson));
         using var otherHeldState = await otherClient.GetAsync("/api/game");
         Assert.Equal(heldJson, await AssertGameStateAsync(otherHeldState, "Andreas", 1, held));
 
-        using var secondRoll = await client.PostAsync("/api/game/roll", null);
+        using var secondRoll = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
         string secondJson = await AssertGameStateAsync(secondRoll, "Andreas", 2, held);
         Assert.Equal(ReadDice(firstJson)[1], ReadDice(secondJson)[1]);
 
-        using var released = await client.PostAsync("/api/game/hold/2", null);
+        using var released = await GameHttpActions.PostAsync(client, "/api/game/hold/2", _factory.Services.GetRequiredService<GameSession>().GetState());
         string releasedJson = await AssertGameStateAsync(released, "Andreas", 2);
         Assert.Equal(ReadDice(secondJson), ReadDice(releasedJson));
 
         // En sluppet terning kastes igen, men må gerne få den samme værdi.
-        using var thirdRoll = await client.PostAsync("/api/game/roll", null);
+        using var thirdRoll = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
         string thirdJson = await AssertGameStateAsync(thirdRoll, "Andreas", 3);
         using var otherFinalState = await otherClient.GetAsync("/api/game");
         Assert.Equal(thirdJson, await AssertGameStateAsync(otherFinalState, "Andreas", 3));
@@ -422,7 +425,7 @@ public class GameApiTests : IDisposable
         using var client = _factory.CreateClient();
         using var created = await client.PostAsJsonAsync("/api/game/new", new { name = "Andreas" });
         await AssertStartStateAsync(created, "Andreas");
-        using var firstRoll = await client.PostAsync("/api/game/roll", null);
+        using var firstRoll = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
         string firstJson = await AssertGameStateAsync(firstRoll, "Andreas", 1);
         int[] firstDice = ReadDice(firstJson);
 
@@ -430,14 +433,14 @@ public class GameApiTests : IDisposable
         for (int number = 1; number <= 5; number++)
         {
             held[number - 1] = true;
-            using var response = await client.PostAsync($"/api/game/hold/{number}", null);
+            using var response = await GameHttpActions.PostAsync(client, $"/api/game/hold/{number}", _factory.Services.GetRequiredService<GameSession>().GetState());
             string heldJson = await AssertGameStateAsync(response, "Andreas", 1, held);
             Assert.Equal(firstDice, ReadDice(heldJson));
         }
 
         for (int roll = 2; roll <= 3; roll++)
         {
-            using var response = await client.PostAsync("/api/game/roll", null);
+            using var response = await GameHttpActions.PostAsync(client, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
             string rolledJson = await AssertGameStateAsync(response, "Andreas", roll, held);
             Assert.Equal(firstDice, ReadDice(rolledJson));
         }
@@ -453,14 +456,15 @@ public class GameApiTests : IDisposable
         using var secondClient = _factory.CreateClient();
         using var created = await firstClient.PostAsJsonAsync("/api/game/new", new { name = "Andreas" });
         await AssertStartStateAsync(created, "Andreas");
-        using var rolled = await firstClient.PostAsync("/api/game/roll", null);
+        using var rolled = await GameHttpActions.PostAsync(firstClient, "/api/game/roll", _factory.Services.GetRequiredService<GameSession>().GetState());
         string rolledJson = await AssertGameStateAsync(rolled, "Andreas", 1);
 
+        var contextState = _factory.Services.GetRequiredService<GameSession>().GetState();
         var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var requests = new[] { firstClient, secondClient }.Select(async client =>
         {
             await start.Task;
-            return await client.PostAsync("/api/game/hold/2", null);
+            return await GameHttpActions.PostAsync(client, "/api/game/hold/2", contextState);
         }).ToArray();
 
         start.SetResult(true);

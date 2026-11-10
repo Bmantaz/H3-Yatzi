@@ -8,11 +8,17 @@
 //   held:           [false, false, false, false, false],
 //   rollsUsed:      0,
 //   possibleScores: {},
-//   turnCompleted:  false
+//   turnCompleted:  false,
+//   gameId:         "serverens GUID",
+//   turnNumber:     1,
+//   gameCompleted:  false,
+//   winnerIndices:  []
 // }
 //
 // Lobbyen fra /api/lobby (se docs/lobby.md):
 // { players: [{ id, name, connected }], started: false }
+// Join tilføjer joinedPlayerId. Frontenden viser serverens resultat og fastholder
+// spil-/turkonteksten ved klik. bridge.js videresender Oplà-protokollen uafhængigt.
 
 const MAX_ROLLS = 3;
 const DICE_COUNT = 5;
@@ -23,7 +29,8 @@ async function request(path, options) {
   let res;
   try {
     res = await fetch(path, options);
-  } catch {
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
     throw new Error("Ingen forbindelse til serveren.");
   }
 
@@ -45,29 +52,33 @@ function postJson(path, body) {
 }
 
 const api = {
-  getGame() {
-    return request("/api/game");
+  getGame(signal) {
+    return request("/api/game", { signal });
   },
 
   newGame(name) {
     return postJson("/api/game/new", { name });
   },
 
-  roll() {
-    return request("/api/game/roll", { method: "POST" });
+  roll(context) {
+    return postJson("/api/game/roll", context);
   },
 
   // API'et tæller terninger 1-5
-  toggleHold(index) {
-    return request(`/api/game/hold/${index + 1}`, { method: "POST" });
+  toggleHold(index, context) {
+    return postJson(`/api/game/hold/${index + 1}`, context);
   },
 
-  score(category) {
-    return request(`/api/game/score/${category}`, { method: "POST" });
+  score(category, context) {
+    return postJson(`/api/game/score/${category}`, context);
   },
 
-  getLobby() {
-    return request("/api/lobby");
+  strike(category, context) {
+    return postJson(`/api/game/strike/${category}`, context);
+  },
+
+  getLobby(signal) {
+    return request("/api/lobby", { signal });
   },
 
   join(name, code) {
@@ -76,6 +87,10 @@ const api = {
 
   startLobby() {
     return request("/api/lobby/start", { method: "POST" });
+  },
+
+  restart(context) {
+    return postJson("/api/lobby/restart", context);
   },
 };
 
@@ -145,22 +160,41 @@ const store = {
 let myId = store.get("playerId");
 let myIndex = null;
 let lobbyGame = false;
+let lastLobby = null;
+let lastState = null;
+let busy = false;
+let actions = 0;
+let actionError = "";
+let pollError = "";
+let reading = null;
 
 function setMyId(id) {
   myId = id;
   store.set("playerId", id);
 }
 
-function enterLobbyGame(lobby) {
-  lobbyGame = true;
-  store.set("solo", null);
+// Kaldes først, når en hel læsning er accepteret. Et gammelt poll må ikke rydde
+// det id, et nyere join netop har gemt, eller ændre browserens spilform.
+function applyLobby(lobby) {
+  lastLobby = lobby;
   const i = lobby.players.findIndex((p) => p.id === myId);
-  myIndex = i >= 0 ? i : null;
+  if (myId && i < 0) setMyId(null);
+  lobbyGame = lobby.started;
+  myIndex = lobbyGame && i >= 0 ? i : null;
+  if (lobbyGame) store.set("solo", null);
 }
 
 // I et lobbyspil må kun spilleren med tur kaste og vælge felt
 function canAct(state) {
   return !lobbyGame || myIndex === state.currentPlayer;
+}
+
+function actionContext(state) {
+  return Object.freeze({ gameId: state.gameId, turnNumber: state.turnNumber, playerId: lobbyGame ? myId : null });
+}
+
+function allConnected() {
+  return lastLobby?.players.length > 0 && lastLobby.players.every((p) => p.connected);
 }
 
 // Hvilke af de 9 pladser (3x3) der har en prik for hver værdi.
@@ -214,18 +248,19 @@ function renderDie(die, index, value, held, canHold) {
   die.querySelector(".die-label").textContent = held ? "HOLDT" : String(index + 1);
 }
 
-// Tegner hele spilskærmen ud fra tilstanden
-let lastState = null;
-
+// Tegner kun accepterede øjebliksbilleder. GUID'er er identiteter, ikke en tidsrækkefølge.
 function render(state) {
-  const rolled = lastState && state.rollsUsed > lastState.rollsUsed;
+  if (lastState?.gameId === state.gameId && state.turnNumber < lastState.turnNumber) return;
+  const sameTurn = lastState?.gameId === state.gameId && lastState.turnNumber === state.turnNumber;
+  const rolled = sameTurn && state.rollsUsed > lastState.rollsUsed;
+  stopRollAnimation();
   lastState = state;
 
   el.lobbyScreen.hidden = true;
   el.gameScreen.hidden = false;
   el.newGameBtn.hidden = lobbyGame;
 
-  const over = isGameOver(state);
+  const over = state.gameCompleted;
   const myTurn = !over && canAct(state);
   renderTurn(state, myTurn, over);
 
@@ -233,23 +268,9 @@ function render(state) {
   el.gameOver.hidden = !over;
   if (over) renderGameOver(state);
 
-  const canHold = myTurn && !state.turnCompleted && state.rollsUsed > 0 && state.rollsUsed < MAX_ROLLS;
-  [...el.dice.children].forEach((die, i) => renderDie(die, i, state.dice[i], state.held[i], canHold));
+  updateControls();
   if (rolled && !over) rollAnimation(state);
-
-  el.rollCount.textContent = `Slag ${state.rollsUsed}/${MAX_ROLLS}`;
-  el.rollBtn.disabled = !myTurn || state.turnCompleted || state.rollsUsed >= MAX_ROLLS;
-  el.hint.hidden = !myTurn;
-
-  if (over) {
-    showMessage("");
-  } else if (state.turnCompleted) {
-    showMessage("Turen er afsluttet.");
-  } else if (myTurn && state.rollsUsed >= MAX_ROLLS) {
-    showMessage("Alle slag er brugt. Vælg et felt på pointtavlen.");
-  }
-
-  renderScoreboard(state, myTurn);
+  updateMessage();
 }
 
 function renderTurn(state, myTurn, over) {
@@ -266,19 +287,14 @@ function renderTurn(state, myTurn, over) {
   document.title = lobbyGame && myTurn ? "Din tur · H3 Yatzi" : "H3 Yatzi";
 }
 
-// Spillet er slut, når alle spillere har udfyldt alle 15 felter
-function isGameOver(state) {
-  return state.players.every((p) => Object.values(p.scorecard.scores).every((v) => v !== null));
-}
-
 function namesText(names) {
   return names.length > 1 ? `${names.slice(0, -1).join(", ")} og ${names[names.length - 1]}` : names[0];
 }
 
 function renderGameOver(state) {
-  const best = Math.max(...state.players.map((p) => p.scorecard.total));
-  const winners = state.players.filter((p) => p.scorecard.total === best);
-  const iWon = lobbyGame && myIndex !== null && state.players[myIndex].scorecard.total === best;
+  const winners = state.winnerIndices.map((index) => state.players[index]);
+  const best = winners[0].scorecard.total;
+  const iWon = lobbyGame && state.winnerIndices.includes(myIndex);
 
   if (state.players.length === 1) {
     el.winner.textContent = `${state.players[0].name} fik ${best} point`;
@@ -291,16 +307,13 @@ function renderGameOver(state) {
   }
 
   el.ranking.replaceChildren();
-  [...state.players]
-    .sort((a, b) => b.scorecard.total - a.scorecard.total)
-    .forEach((p) => {
-      const li = cell("li", "", p.scorecard.total === best ? "best" : "");
+  state.players.map((player, index) => ({ player, index }))
+    .sort((a, b) => b.player.scorecard.total - a.player.scorecard.total || a.index - b.index)
+    .forEach(({ player: p, index }) => {
+      const li = cell("li", "", state.winnerIndices.includes(index) ? "best" : "");
       li.append(cell("span", p.name), cell("span", `${p.scorecard.total} point`));
       el.ranking.append(li);
     });
-
-  // Nyt spil efter et lobbyspil kommer med #44
-  el.endNewGameBtn.hidden = lobbyGame;
 }
 
 function cell(tag, text, className) {
@@ -336,7 +349,7 @@ function renderScoreboard(state, myTurn) {
       if (saved !== null) {
         td.textContent = saved;
       } else if (i === current && canScore) {
-        td.append(scoreButton(id, label, state.possibleScores[id]));
+        td.append(scoreButton(id, label, state.possibleScores[id], actionContext(state)));
       }
       tr.append(td);
     });
@@ -360,20 +373,22 @@ function addSumRow(section, label, state, value) {
   });
 }
 
-function scoreButton(category, label, points) {
+function scoreButton(category, label, points, context) {
   const btn = cell("button", points, points === 0 ? "score-option zero" : "score-option");
   btn.type = "button";
   btn.setAttribute("aria-label", `${label}: ${points} point`);
-  btn.addEventListener("click", () => onChooseField(category, label, points));
+  btn.addEventListener("click", () => onChooseField(category, label, points, context));
   return btn;
 }
 
 function renderLobby(lobby) {
+  stopRollAnimation();
+  lastState = null;
+  document.title = "H3 Yatzi";
   el.gameScreen.hidden = true;
   el.lobbyScreen.hidden = false;
 
   const me = lobby.players.find((p) => p.id === myId);
-  if (myId && !me) setMyId(null); // fx hvis serveren er genstartet
 
   el.joinForm.hidden = !!me;
   el.soloBtn.hidden = !!me;
@@ -394,7 +409,8 @@ function renderLobby(lobby) {
     el.lobbyPlayers.append(li);
   });
 
-  el.startBtn.disabled = lobby.players.length === 0 || lobby.players.some((p) => !p.connected);
+  updateControls();
+  updateMessage();
 }
 
 // Dansk ejefald: "Frederiks", men "Andreas'" (navne der ender på s, x eller z).
@@ -407,35 +423,85 @@ function showMessage(text, isError = false) {
   el.message.classList.toggle("error", isError);
 }
 
-let busy = false; // så et dobbeltklik på Kast ikke bruger to slag
-let actions = 0;
+// Visuel lås og adgang følger de samme regler som klikhandlerne. Terningerne
+// forbliver synlige for ventende spillere og tilskuere, men kan ikke betjenes.
+function updateControls() {
+  el.joinForm.querySelector("button").disabled = busy;
+  el.nameInput.disabled = busy;
+  el.codeInput.disabled = busy;
+  el.soloBtn.disabled = busy;
+  el.startBtn.disabled = busy || !lastLobby || lastLobby.started || !allConnected();
+  el.newGameBtn.disabled = busy;
+  if (!lastState || el.gameScreen.hidden) return;
+  const state = lastState;
+  const myTurn = !state.gameCompleted && canAct(state);
+  const canHold = !busy && myTurn && !state.turnCompleted && state.rollsUsed > 0 && state.rollsUsed < MAX_ROLLS;
+  [...el.dice.children].forEach((die, i) => renderDie(die, i, state.dice[i], state.held[i], canHold));
+  el.rollCount.textContent = `Slag ${state.rollsUsed}/${MAX_ROLLS}`;
+  el.rollBtn.hidden = lobbyGame && myIndex === null;
+  el.rollBtn.disabled = busy || !myTurn || state.turnCompleted || state.rollsUsed >= MAX_ROLLS;
+  el.hint.hidden = !myTurn;
+  el.endNewGameBtn.textContent = lobbyGame ? "Omkamp" : "Nyt spil";
+  el.endNewGameBtn.hidden = lobbyGame && myIndex === null;
+  el.endNewGameBtn.disabled = busy || (lobbyGame && !allConnected());
+  renderScoreboard(state, myTurn && !busy);
+}
+
+// Handlingsfejl lever videre gennem polling. Almindelige råd og forbindelsesfejl
+// må ikke erstatte en afvist omkamps konkrete danske forklaring.
+function updateMessage() {
+  if (actionError || pollError) return showMessage(actionError || pollError, true);
+  if (lastState?.gameCompleted && lobbyGame && myIndex !== null && !allConnected())
+    return showMessage("Alle deltagere skal være forbundet før omkamp.");
+  if (lastState && !lastState.gameCompleted && canAct(lastState) && lastState.rollsUsed >= MAX_ROLLS)
+    return showMessage("Alle slag er brugt. Vælg et felt på pointtavlen.");
+  showMessage("");
+}
 
 async function run(action) {
   if (busy) return;
   busy = true;
   actions++;
+  reading?.controller.abort();
+  actionError = "";
+  updateControls();
+  updateMessage();
   try {
-    showMessage("");
     const state = await action();
     if (state) render(state);
   } catch (err) {
-    showMessage(err.message, true);
+    actionError = err.message;
+    if (err.status === 409 || err.status === 404) await refresh(true);
   } finally {
     busy = false;
+    updateControls();
+    updateMessage();
   }
 }
 
 function onToggleHold(index) {
-  run(() => api.toggleHold(index));
+  if (!lastState || !canAct(lastState) || lastState.gameCompleted || lastState.rollsUsed === 0 || lastState.rollsUsed >= MAX_ROLLS) return;
+  const context = actionContext(lastState);
+  return run(() => api.toggleHold(index, context));
 }
 
-function onChooseField(category, label, points) {
-  if (points === 0 && !confirm(`${label} giver 0 point. Vil du stryge feltet?`)) return;
-  run(() => api.score(category));
+function onChooseField(category, label, points, context) {
+  if (!lastState || !canAct(lastState) || lastState.gameCompleted || lastState.rollsUsed === 0) return;
+  // Busy sættes før dialogen. Konteksten kommer fra feltknappens viste tur,
+  // også hvis et andet input afslutter turen, mens bekræftelsen er åben.
+  return run(() => {
+    if (points === 0) {
+      if (!confirm(`${label} giver 0 point. Vil du stryge feltet?`)) return;
+      return api.strike(category, context);
+    }
+    return api.score(category, context);
+  });
 }
 
 el.rollBtn.addEventListener("click", () => {
-  run(() => api.roll());
+  if (!lastState || !canAct(lastState) || lastState.gameCompleted || lastState.rollsUsed >= MAX_ROLLS) return;
+  const context = actionContext(lastState);
+  return run(() => api.roll(context));
 });
 
 el.joinForm.addEventListener("submit", (event) => {
@@ -444,20 +510,19 @@ el.joinForm.addEventListener("submit", (event) => {
   const code = el.codeInput.value.trim();
   if (!name) return;
 
-  run(async () => {
+  return run(async () => {
     const lobby = await api.join(name, code);
-    // Svaret er lobbyen lige efter vores join, så vi er den sidste med navnet
-    const mine = lobby.players.filter((p) => p.name === name).pop();
-    setMyId(mine ? mine.id : null);
-    renderLobby(lobby);
+    setMyId(lobby.joinedPlayerId);
+    applyLobby(lobby);
+    if (!lobby.started) renderLobby(lobby);
+    await refresh(true);
   });
 });
 
 el.startBtn.addEventListener("click", () => {
-  run(async () => {
-    const state = await api.startLobby();
-    enterLobbyGame(await api.getLobby());
-    return state;
+  return run(async () => {
+    await api.startLobby();
+    await refresh(true);
   });
 });
 
@@ -466,7 +531,7 @@ el.soloBtn.addEventListener("click", () => {
   const name = el.nameInput.value.trim();
   if (!name) return;
 
-  run(async () => {
+  return run(async () => {
     const state = await api.newGame(name);
     lobbyGame = false;
     myIndex = null;
@@ -476,15 +541,19 @@ el.soloBtn.addEventListener("click", () => {
 });
 
 function backToLobby() {
-  showMessage("");
-  store.set("solo", null);
-  run(async () => {
-    renderLobby(await api.getLobby());
+  return run(async () => {
+    store.set("solo", null);
+    await refresh(true);
   });
 }
 
 el.newGameBtn.addEventListener("click", backToLobby);
-el.endNewGameBtn.addEventListener("click", backToLobby);
+el.endNewGameBtn.addEventListener("click", () => {
+  if (!lobbyGame) return backToLobby();
+  if (!lastState?.gameCompleted || myIndex === null || !allConnected()) return;
+  const context = Object.freeze({ gameId: lastState.gameId, playerId: myId });
+  return run(() => api.restart(context));
+});
 
 // Koden udfyldes, når Oplaen er forbundet med USB (bridge.js)
 window.addEventListener("opla:pair", (e) => {
@@ -494,6 +563,12 @@ window.addEventListener("opla:pair", (e) => {
 // Terninger der ikke holdes, ryster og viser tilfældige øjne, før de lander på serverens værdi.
 let rollTimer = null;
 
+function stopRollAnimation() {
+  clearInterval(rollTimer);
+  rollTimer = null;
+  [...el.dice.children].forEach((die) => die.classList.remove("rolling"));
+}
+
 function rollAnimation(state) {
   const dice = [...el.dice.children].filter((die, i) => !state.held[i]);
   dice.forEach((die) => {
@@ -502,72 +577,59 @@ function rollAnimation(state) {
     die.classList.add("rolling");
   });
 
-  clearInterval(rollTimer);
   let ticks = 0;
   rollTimer = setInterval(() => {
+    // Selv en callback, som allerede var klar, må ikke tegne en gammel tur.
+    if (lastState !== state || el.gameScreen.hidden) return;
     ticks++;
     dice.forEach((die) => showPips(die, ticks < 6 ? 1 + Math.floor(Math.random() * 6) : state.dice[die.dataset.index]));
-    if (ticks === 6) clearInterval(rollTimer);
+    if (ticks === 6) stopRollAnimation();
   }, 80);
 }
 
-// Henter tilstanden hvert sekund: spillet når det er i gang, ellers lobbyen.
-let polling = false;
-let pollFailed = false;
-
-async function poll() {
-  if (busy || polling || document.hidden) return;
-  polling = true;
-  const before = actions;
-  try {
-    let state = null;
-    let lobby = null;
-    if (!el.gameScreen.hidden) {
-      state = await api.getGame();
-    } else {
-      lobby = await api.getLobby();
-      if (lobby.started) state = await api.getGame();
-    }
-    if (before !== actions) return; // et klik er sket imens, og dets svar er nyere
-
-    if (pollFailed) {
-      pollFailed = false;
-      showMessage("");
-    }
-    if (lobby && lobby.started) enterLobbyGame(lobby);
-    if (lobby && !lobby.started) renderLobby(lobby);
-    else if (JSON.stringify(state) !== JSON.stringify(lastState) || !el.lobbyScreen.hidden) render(state);
-  } catch (err) {
-    if (before !== actions) return;
-    pollFailed = true;
-    showMessage(err.message, true);
-  } finally {
-    polling = false;
-  }
-}
-
-async function load() {
-  try {
-    const lobby = await api.getLobby();
-    if (lobby.started) {
-      enterLobbyGame(lobby);
-      render(await api.getGame());
-      return;
-    }
-    if (store.get("solo")) {
-      try {
-        render(await api.getGame());
-        return;
-      } catch (err) {
-        if (err.status !== 404) throw err;
+// Fælles læsning for opstart, polling og konflikter. En hel læsning accepteres
+// først efter begge svar. Generationen beskytter også mod fetch, som ignorerer abort.
+function refresh(force = false) {
+  if (!force && (busy || document.hidden)) return Promise.resolve();
+  if (reading?.generation === actions) return reading.promise;
+  reading?.controller.abort();
+  const operation = { generation: actions, controller: new AbortController() };
+  reading = operation;
+  const current = () => reading === operation && operation.generation === actions;
+  operation.promise = (async () => {
+    try {
+      const signal = operation.controller.signal;
+      let lobby = await api.getLobby(signal);
+      let state = null;
+      let missingGame = false;
+      if (lobby.started || store.get("solo")) {
+        try { state = await api.getGame(signal); }
+        catch (err) {
+          if (err.status !== 404) throw err;
+          // Serveren kan være genstartet mellem lobby- og spilopslaget.
+          lobby = await api.getLobby(signal);
+          if (lobby.started) throw err;
+          missingGame = true;
+        }
       }
+      if (!current()) return;
+      if (state && lastState?.gameId === state.gameId && state.turnNumber < lastState.turnNumber) return;
+      if (missingGame) store.set("solo", null);
+      applyLobby(lobby);
+      pollError = "";
+      if (state) render(state); else renderLobby(lobby);
+    } catch (err) {
+      if (!current() || err.name === "AbortError") return;
+      pollError = err.message;
+      updateMessage();
+    } finally {
+      if (reading === operation) reading = null;
     }
-    renderLobby(lobby);
-  } catch (err) {
-    showMessage(err.message, true);
-  }
+  })();
+  return operation.promise;
 }
 
 createDice();
-load();
-setInterval(poll, POLL_MS);
+updateControls();
+refresh();
+setInterval(() => refresh(), POLL_MS);

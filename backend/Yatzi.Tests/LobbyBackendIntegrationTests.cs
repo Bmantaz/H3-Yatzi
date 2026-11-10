@@ -173,8 +173,10 @@ public partial class LobbyApiTests
             Assert.Equal("STATE 0 00000", await ReceiveAsync(first.Socket));
             await SendAsync(first.Socket, "ROLL");
             Assert.Equal("STATE 1 00000", await ReceiveAsync(first.Socket));
-            using var scored = await previousClient.PostAsync("/api/game/strike/chance", null, _deadline.Token);
+            using var scored = await GameHttpActions.PostAsync(previousClient, "/api/game/strike/chance",
+                previousFactory.Services.GetRequiredService<GameSession>().GetState(), oldPlayerId, _deadline.Token);
             scored.EnsureSuccessStatusCode();
+            Assert.Equal("STATE 0 00000", await ReceiveAsync(first.Socket));
             await CloseAsync(first.Socket, first.Connection);
         }
 

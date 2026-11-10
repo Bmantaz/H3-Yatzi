@@ -19,6 +19,12 @@ public sealed class Scorecard
     public IReadOnlyDictionary<ScoreCategory, int?> Scores { get; }
 
     /// <summary>
+    /// True når alle 15 felter er udfyldt. HasValue tæller også gemte nuller;
+    /// status beregnes fra felterne og kan derfor ikke komme ud af takt med tavlen.
+    /// </summary>
+    public bool IsComplete => _scores.Values.All(score => score.HasValue);
+
+    /// <summary>
     /// Summen af gemte point i Ones–Sixes. Ledige felter bidrager med 0.
     /// </summary>
     public int UpperSum => _scores

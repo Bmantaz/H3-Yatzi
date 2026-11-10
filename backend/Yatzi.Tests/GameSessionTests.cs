@@ -128,10 +128,10 @@ public class GameSessionTests
         Assert.Equal(secondPossible.OrderBy(entry => entry.Key), second.PossibleScores.OrderBy(entry => entry.Key));
         GameStateAssertions.Equal(expectedScored, scored);
         Assert.Equal(strike ? 0 : second.Dice.Sum(), scored.Players[0].Scorecard.Scores["chance"]);
-        Assert.True(scored.TurnCompleted);
-        Assert.Equal(second.Dice, scored.Dice);
-        Assert.Equal(second.Held, scored.Held);
-        Assert.Equal(second.RollsUsed, scored.RollsUsed);
+        Assert.False(scored.TurnCompleted);
+        Assert.Equal(new int[5], scored.Dice);
+        Assert.Equal(new bool[5], scored.Held);
+        Assert.Equal(0, scored.RollsUsed);
         Assert.Empty(scored.PossibleScores);
         Assert.All(replacement.Players[0].Scorecard.Scores.Values, score => Assert.Null(score));
         Assert.False(replacement.TurnCompleted);

@@ -261,7 +261,7 @@ public class LobbyStartSessionTests : IDisposable
     }
 
     [Fact]
-    public async Task ReadyAfterHttpActions_RestoresActiveStateAndWaitWithoutRestartingCompletedTurn()
+    public async Task ReadyAfterRotation_RestoresCurrentStateAndWaitWithoutExtraRolls()
     {
         var (first, socket) = await JoinAsync("A");
         var (second, waiting) = await JoinAsync("B");
@@ -272,13 +272,25 @@ public class LobbyStartSessionTests : IDisposable
         string before = JsonSerializer.Serialize(_game.GetState());
         await _lobby.HandleReadyAsync(first.ConnectionId, "9999", _deadline.Token);
         await _lobby.HandleReadyAsync(second.ConnectionId, "0000", _deadline.Token);
-        Assert.Equal(new[] { "PAIR 0000", "JOINED A", "STATE 1 00100" }, Lines(socket).TakeLast(3));
-        Assert.Equal(new[] { "PAIR 0001", "JOINED B", "WAIT A" }, Lines(waiting).TakeLast(3));
+        Assert.Equal(new[] { "PAIR 0000", "JOINED A", "WAIT B" }, Lines(socket).TakeLast(3));
+        Assert.Equal(new[] { "PAIR 0001", "JOINED B", "STATE 0 00000" }, Lines(waiting).TakeLast(3));
         var (current, replacement) = Connect();
         await _lobby.HandleReadyAsync(current.ConnectionId, "0000", _deadline.Token);
-        Assert.Equal(new[] { "PAIR 0000", "JOINED A", "STATE 1 00100" }, Lines(replacement));
+        Assert.Equal(new[] { "PAIR 0000", "JOINED A", "WAIT B" }, Lines(replacement));
         Assert.Equal(before, JsonSerializer.Serialize(_game.GetState()));
-        Assert.Throws<InvalidOperationException>(() => _game.Roll());
+        Assert.Equal(1, _game.Roll()!.RollsUsed);
+        _game.ToggleHold(1);
+        before = JsonSerializer.Serialize(_game.GetState());
+        await _lobby.HandleReadyAsync(second.ConnectionId, null, _deadline.Token);
+        Assert.Equal(new[] { "PAIR 0001", "JOINED B", "STATE 1 01000" }, Lines(waiting).TakeLast(3));
+        Assert.Equal(before, JsonSerializer.Serialize(_game.GetState()));
+        _game.Strike(ScoreCategory.Chance);
+        before = JsonSerializer.Serialize(_game.GetState());
+        await _lobby.HandleReadyAsync(current.ConnectionId, null, _deadline.Token);
+        await _lobby.HandleReadyAsync(second.ConnectionId, null, _deadline.Token);
+        Assert.Equal(new[] { "PAIR 0000", "JOINED A", "STATE 0 00000" }, Lines(replacement).TakeLast(3));
+        Assert.Equal(new[] { "PAIR 0001", "JOINED B", "WAIT A" }, Lines(waiting).TakeLast(3));
+        Assert.Equal(before, JsonSerializer.Serialize(_game.GetState()));
     }
 
     private (OplaConnection Connection, ControlledWebSocket Socket) Connect()

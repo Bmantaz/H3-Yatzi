@@ -19,7 +19,40 @@ public class ScorecardTests
         Assert.Equal(15, card.Scores.Count);
         Assert.Equal(Enum.GetValues<ScoreCategory>(), card.Scores.Keys.OrderBy(category => (int)category));
         Assert.All(card.Scores.Values, score => Assert.Null(score));
+        Assert.False(card.IsComplete);
         Assert.Equal((0, 0, 0), (card.UpperSum, card.Bonus, card.Total));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void IsComplete_OnlyBecomesTrueAfterLastFieldIncludingZeros(bool strike)
+    {
+        var card = new Scorecard();
+        var categories = Enum.GetValues<ScoreCategory>();
+
+        for (int i = 0; i < categories.Length; i++)
+        {
+            Assert.False(card.IsComplete);
+            if (strike)
+            {
+                card.Strike(categories[i]);
+            }
+            else
+            {
+                // Kastet giver både positive point og beregnede nuller på tavlen.
+                card.Record(new[] { 5, 5, 5, 2, 2 }, categories[i]);
+            }
+
+            var expected = card.Scores.ToDictionary(entry => entry.Key, entry => entry.Value);
+            var totals = (card.UpperSum, card.Bonus, card.Total);
+            Assert.Equal(i == categories.Length - 1, card.IsComplete);
+            AssertCardUnchanged(card, expected, totals);
+        }
+
+        Assert.True(card.IsComplete);
+        Assert.All(card.Scores.Values, score => Assert.True(score.HasValue));
+        if (strike) Assert.All(card.Scores.Values, score => Assert.Equal(0, score));
     }
 
     [Theory]
@@ -398,6 +431,7 @@ public class ScorecardTests
         }
 
         Assert.Equal(15, card.Scores.Count);
+        Assert.True(card.IsComplete);
         Assert.All(card.Scores.Values, score => Assert.Equal(0, score));
         Assert.Equal((0, 0, 0), (card.UpperSum, card.Bonus, card.Total));
         foreach (var category in Enum.GetValues<ScoreCategory>())

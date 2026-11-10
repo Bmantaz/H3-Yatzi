@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.WebSockets;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging.Abstractions;
+using Yatzi.Core;
 
 namespace Yatzi.Api;
 
@@ -9,8 +10,9 @@ namespace Yatzi.Api;
 /// Ejer parringskoder, spillere og tilmeldingsrækkefølge i hukommelsen. READY udsteder
 /// PAIR; HTTP-join binder serverens spiller-id og sender JOINED. Registeret ejer
 /// transporten. READY med en kendt kode overtager samme tilknytning på en ny
-/// forbindelse. Start opretter deltagernes spil og køer STATE/WAIT gennem registeret.
-/// Spilinput koordineres med start/overtagelse og bruger samme ordnede beskedkø.
+/// forbindelse. Start og omkamp opretter deltagernes spil og køer STATE/WAIT gennem registeret.
+/// HTTP-spilhandlinger og Oplà-input koordineres med start/overtagelse gennem samme
+/// ordnede beskedkø. Feltvalg udsender STATE/WAIT eller END fra handlingens svarkopi.
 /// </summary>
 public sealed class LobbySession : IOplaReadyHandler
 {
@@ -57,7 +59,8 @@ public sealed class LobbySession : IOplaReadyHandler
     /// <param name="code">En eventuel klientkode; kan ikke ændre en eksisterende kodepost.</param>
     /// <param name="cancellationToken">Transportens kombinerede request-/stop-token.</param>
     /// <remarks>
-    /// READY opretter ingen spiller eller spil. En tilmeldt forbindelse får også JOINED.
+    /// READY opretter ingen spiller eller spil. En tilmeldt forbindelse får også JOINED
+    /// og efter start sin aktuelle STATE, WAIT eller END.
     /// Afsendelse afventes uden lobbylåsen.
     /// Sendesvigt genkører ikke kodeudstedelsen; undtagelser går til transportens fejlgrænse.
     /// </remarks>
@@ -188,7 +191,8 @@ public sealed class LobbySession : IOplaReadyHandler
     /// <summary>
     /// Tilmeld et valideret navn og en firecifret kode atomisk. En vellykket serverbinding
     /// er acceptpunktet; senere afbrydelse eller sendesvigt fjerner ikke spilleren.
-    /// HTTP afventer JOINED-forsøget og får derefter et friskt lobbyøjebliksbillede.
+    /// HTTP afventer JOINED-forsøget og får derefter et friskt lobbyøjebliksbillede
+    /// sammen med netop denne requests accepterede spiller-id.
     /// </summary>
     /// <remarks>Annullering før binding ændrer ingen deltager; senere annullering videresendes.</remarks>
     public async Task<LobbyJoinResult> JoinAsync(string name, string code, CancellationToken cancellationToken = default)
@@ -196,6 +200,7 @@ public sealed class LobbySession : IOplaReadyHandler
         cancellationToken.ThrowIfCancellationRequested();
         OutgoingBatch batch;
         OplaConnection connection;
+        Guid playerId;
         lock (_sync)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -206,7 +211,7 @@ public sealed class LobbySession : IOplaReadyHandler
             if (entry.IsJoined) return new(LobbyJoinStatus.AlreadyJoined);
             if (_players.Count >= MaxPlayers) return new(LobbyJoinStatus.Full);
 
-            Guid playerId = Guid.NewGuid();
+            playerId = Guid.NewGuid();
             cancellationToken.ThrowIfCancellationRequested();
             if (!_registry.TryGet(entry.ConnectionId, out var recipient)
                 || !_registry.TryBindPlayer(entry.ConnectionId, playerId))
@@ -220,7 +225,7 @@ public sealed class LobbySession : IOplaReadyHandler
         }
 
         await SendCommittedBatchAsync(batch, connection, "JOINED", cancellationToken);
-        return new(LobbyJoinStatus.Joined, GetState());
+        return new(LobbyJoinStatus.Joined, GetState(), playerId);
     }
 
     /// <summary>
@@ -261,10 +266,99 @@ public sealed class LobbySession : IOplaReadyHandler
         return new(LobbyStartStatus.Started, state);
     }
 
-    // Kun under lobbylåsen. STATE bruger samme formattering som spilhandleren.
-    // Første deltager forbliver aktiv, også efter turafslutning, frem til #44.
+    /// <summary>
+    /// Starter en omkamp med samme deltagere og parringer. GameSession kontrollerer
+    /// det forventede spil-id under sin lås, så konkurrerende requests højst nulstiller én gang.
+    /// Aktuelle forbindelser fanges under lobbylåsen; udfald efter kontrollen fortryder ikke accept.
+    /// </summary>
+    /// <remarks>
+    /// Låserækkefølgen er lobby → spilsession. Ingen I/O sker under tilstandslåsene.
+    /// Efter accept reserveres alle batches før afventning, også ved senere annullering.
+    /// </remarks>
+    public async Task<LobbyRestartResult> RestartAsync(LobbyRestartContext context, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        LobbyRestartResult result;
+        var deliveries = new List<(OutgoingBatch Batch, OplaConnection Connection)>();
+        lock (_sync)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var connections = new List<OplaConnection>();
+            foreach (var player in _players)
+            {
+                if (!_registry.TryGet(player.ConnectionId, out var connection)
+                    || !_registry.TryGetPlayerId(player.ConnectionId, out var id) || id != player.PlayerId) break;
+                connections.Add(connection);
+            }
+
+            // Forbindelserne kontrolleres først af lobbyen, men deres regelafvisning
+            // kommer sidst i GameSession, efter spil-id, relation og afslutning.
+            result = _gameSession.RestartLobbyGame(context, connections.Count == _players.Count, cancellationToken);
+            if (result.Status != LobbyRestartStatus.Restarted) return result;
+            for (int i = 0; i < _players.Count; i++)
+                deliveries.Add((QueueBatch(_players[i], [GameReply(_players[i].PlayerId, result.State!)]), connections[i]));
+        }
+
+        await Task.WhenAll(deliveries.Select(delivery =>
+            SendCommittedBatchAsync(delivery.Batch, delivery.Connection, "Omkamp", cancellationToken)));
+        return result;
+    }
+
+    /// <summary>Kaster med HTTP-kontekst og køer STATE til den aktive, aktuelle Oplà.</summary>
+    public Task<GameActionResult> RollAsync(GameActionContext context, CancellationToken cancellationToken = default) =>
+        ExecuteHttpActionAsync(GameActionKind.Roll, context, cancellationToken);
+
+    /// <summary>Skifter hold/slip ved indeks 0–4 og køer samme handlings STATE.</summary>
+    public Task<GameActionResult> ToggleHoldAsync(int index, GameActionContext context, CancellationToken cancellationToken = default) =>
+        ExecuteHttpActionAsync(GameActionKind.ToggleHold, context, cancellationToken, index);
+
+    /// <summary>Registrerer point og køer STATE/WAIT eller END fra den accepterede svarkopi.</summary>
+    public Task<GameActionResult> ScoreAsync(ScoreCategory category, GameActionContext context, CancellationToken cancellationToken = default) =>
+        ExecuteHttpActionAsync(GameActionKind.Score, context, cancellationToken, category: category);
+
+    /// <summary>Stryger et felt og køer STATE/WAIT eller END fra den accepterede svarkopi.</summary>
+    public Task<GameActionResult> StrikeAsync(ScoreCategory category, GameActionContext context, CancellationToken cancellationToken = default) =>
+        ExecuteHttpActionAsync(GameActionKind.Strike, context, cancellationToken, category: category);
+
+    // Samme lobbylås som ved Oplà-input, READY og start. Efter accept reserveres alle
+    // batches uden flere annulleringskontroller; netværksarbejdet afventes uden lås.
+    private async Task<GameActionResult> ExecuteHttpActionAsync(GameActionKind action, GameActionContext context,
+        CancellationToken cancellationToken, int index = 0, ScoreCategory category = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        GameActionResult result;
+        var deliveries = new List<(OutgoingBatch Batch, OplaConnection Connection)>();
+        lock (_sync)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            result = _gameSession.ExecuteHttpAction(action, context, cancellationToken, index, category);
+            if (result.Status != GameActionStatus.Accepted) return result;
+            var state = result.State!;
+            // Før start kan et selvstændigt spil eksistere ved siden af lobbyen.
+            // Dets HTTP-handlinger må aldrig udsendes til endnu ventende lobbyspillere.
+            if (_started)
+            {
+                bool fieldChoice = action is GameActionKind.Score or GameActionKind.Strike;
+                for (int i = 0; i < _players.Count; i++)
+                {
+                    var player = _players[i];
+                    if (!fieldChoice && i != state.CurrentPlayer) continue;
+                    if (!_registry.TryGet(player.ConnectionId, out var connection)
+                        || !_registry.TryGetPlayerId(player.ConnectionId, out var id) || id != player.PlayerId) continue;
+                    deliveries.Add((QueueBatch(player, [GameReply(player.PlayerId, state)]), connection));
+                }
+            }
+        }
+        await Task.WhenAll(deliveries.Select(delivery =>
+            SendCommittedBatchAsync(delivery.Batch, delivery.Connection, "Spilhandling", cancellationToken)));
+        return result;
+    }
+
+    // Kun under lobbylåsen. Afslutning har forrang for aktiv spiller, også ved READY.
+    // STATE bruger samme formattering som spilhandleren. Kilden er altid en svarkopi.
     private string GameReply(Guid playerId, GameStateResponse state) =>
-        _players[state.CurrentPlayer].PlayerId == playerId
+        state.GameCompleted ? "END"
+        : _players[state.CurrentPlayer].PlayerId == playerId
             ? OplaMessageHandler.FormatState(state)
             : $"WAIT {state.Players[state.CurrentPlayer].Name}";
 
@@ -277,6 +371,7 @@ public sealed class LobbySession : IOplaReadyHandler
         }
         catch (WebSocketException) { }
         catch (IOException) { }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { }
         await CloseFailedDeliveryAsync(connection, operation);
     }
 

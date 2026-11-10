@@ -23,15 +23,32 @@ internal static class GameStateAssertions
         ("fullHouse", ScoreCategory.FullHouse), ("chance", ScoreCategory.Chance), ("yatzy", ScoreCategory.Yatzy)
     };
 
-    internal static void AssertJsonShape(JsonElement state)
+    internal static void AssertJsonShape(JsonElement state, int expectedPlayerCount = 1)
     {
-        AssertNames(state, "players", "currentPlayer", "dice", "held", "rollsUsed", "possibleScores", "turnCompleted");
+        AssertNames(state, "players", "currentPlayer", "dice", "held", "rollsUsed", "possibleScores", "turnCompleted",
+            "gameId", "turnNumber", "gameCompleted", "winnerIndices");
+        Assert.Equal(JsonValueKind.String, state.GetProperty("gameId").ValueKind);
+        Assert.NotEqual(Guid.Empty, state.GetProperty("gameId").GetGuid());
         var players = state.GetProperty("players");
-        Assert.Equal(1, players.GetArrayLength());
-        var player = players[0];
-        AssertNames(player, "name", "scorecard");
-        Assert.InRange(player.GetProperty("name").GetString()!.Length, 1, 20);
-        Assert.Equal(0, state.GetProperty("currentPlayer").GetInt32());
+        Assert.InRange(expectedPlayerCount, 1, 6);
+        Assert.Equal(expectedPlayerCount, players.GetArrayLength());
+        foreach (var player in players.EnumerateArray())
+        {
+            AssertNames(player, "name", "scorecard");
+            Assert.InRange(player.GetProperty("name").GetString()!.Length, 1, 20);
+            AssertScorecard(player.GetProperty("scorecard"));
+        }
+        int currentPlayer = state.GetProperty("currentPlayer").GetInt32();
+        Assert.InRange(currentPlayer, 0, expectedPlayerCount - 1);
+        int filled = players.EnumerateArray().Sum(player => player.GetProperty("scorecard").GetProperty("scores")
+            .EnumerateObject().Count(field => field.Value.ValueKind == JsonValueKind.Number));
+        bool completed = state.GetProperty("gameCompleted").GetBoolean();
+        Assert.Equal(filled == 15 * expectedPlayerCount, completed);
+        Assert.Equal(completed ? filled : filled + 1, state.GetProperty("turnNumber").GetInt32());
+        Assert.Equal(completed, state.GetProperty("turnCompleted").GetBoolean());
+        int[] totals = players.EnumerateArray().Select(player => player.GetProperty("scorecard").GetProperty("total").GetInt32()).ToArray();
+        int[] winners = state.GetProperty("winnerIndices").EnumerateArray().Select(index => index.GetInt32()).ToArray();
+        Assert.Equal(completed ? Enumerable.Range(0, expectedPlayerCount).Where(index => totals[index] == totals.Max()).ToArray() : [], winners);
         int rolls = state.GetProperty("rollsUsed").GetInt32();
         Assert.InRange(rolls, 0, 3);
         var diceValues = state.GetProperty("dice");
@@ -40,7 +57,25 @@ internal static class GameStateAssertions
         var held = state.GetProperty("held");
         Assert.Equal(5, held.GetArrayLength());
         Assert.All(held.EnumerateArray(), value => Assert.True(value.ValueKind is JsonValueKind.True or JsonValueKind.False));
-        var card = player.GetProperty("scorecard");
+        var scores = players[currentPlayer].GetProperty("scorecard").GetProperty("scores");
+        var possible = state.GetProperty("possibleScores");
+        var expectedIds = rolls == 0 || completed
+            ? Array.Empty<string>()
+            : Categories.Where(entry => scores.GetProperty(entry.Id).ValueKind == JsonValueKind.Null)
+                .Select(entry => entry.Id).ToArray();
+        AssertNames(possible, expectedIds);
+        if (expectedIds.Length > 0)
+        {
+            int[] dice = state.GetProperty("dice").EnumerateArray().Select(die => die.GetInt32()).ToArray();
+            foreach (var (id, category) in Categories.Where(entry => expectedIds.Contains(entry.Id)))
+            {
+                Assert.Equal(ScoreCalculator.Calculate(dice, category), possible.GetProperty(id).GetInt32());
+            }
+        }
+    }
+
+    private static void AssertScorecard(JsonElement card)
+    {
         AssertNames(card, "scores", "upperSum", "bonus", "total");
         var scores = card.GetProperty("scores");
         AssertNames(scores, Categories.Select(entry => entry.Id).ToArray());
@@ -66,29 +101,14 @@ internal static class GameStateAssertions
         Assert.Equal(bonus, card.GetProperty("bonus").GetInt32());
         Assert.Equal(sum + bonus, card.GetProperty("total").GetInt32());
 
-        var possible = state.GetProperty("possibleScores");
-        bool completed = state.GetProperty("turnCompleted").GetBoolean();
-        var expectedIds = rolls == 0 || completed
-            ? Array.Empty<string>()
-            : Categories.Where(entry => scores.GetProperty(entry.Id).ValueKind == JsonValueKind.Null)
-                .Select(entry => entry.Id).ToArray();
-        AssertNames(possible, expectedIds);
-        if (expectedIds.Length > 0)
-        {
-            int[] dice = state.GetProperty("dice").EnumerateArray().Select(die => die.GetInt32()).ToArray();
-            foreach (var (id, category) in Categories.Where(entry => expectedIds.Contains(entry.Id)))
-            {
-                Assert.Equal(ScoreCalculator.Calculate(dice, category), possible.GetProperty(id).GetInt32());
-            }
-        }
     }
 
-    internal static async Task<GameStateResponse> ReadHttpStateAsync(HttpResponseMessage response)
+    internal static async Task<GameStateResponse> ReadHttpStateAsync(HttpResponseMessage response, int expectedPlayerCount = 1)
     {
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        AssertJsonShape(document.RootElement);
+        AssertJsonShape(document.RootElement, expectedPlayerCount);
         var state = await response.Content.ReadFromJsonAsync<GameStateResponse>();
         Assert.NotNull(state);
         return state;
@@ -101,6 +121,10 @@ internal static class GameStateAssertions
         Assert.Equal(expected.Held, actual.Held);
         Assert.Equal(expected.RollsUsed, actual.RollsUsed);
         Assert.Equal(expected.TurnCompleted, actual.TurnCompleted);
+        Assert.Equal(expected.GameId, actual.GameId);
+        Assert.Equal(expected.TurnNumber, actual.TurnNumber);
+        Assert.Equal(expected.GameCompleted, actual.GameCompleted);
+        Assert.Equal(expected.WinnerIndices, actual.WinnerIndices);
         Assert.Equal(expected.PossibleScores.OrderBy(entry => entry.Key), actual.PossibleScores.OrderBy(entry => entry.Key));
         Assert.Equal(expected.Players.Length, actual.Players.Length);
         for (int i = 0; i < expected.Players.Length; i++)

@@ -2,7 +2,7 @@
 
 `OplaMessageHandler` omsætter Oplàens tekstlinjer til kast og hold/slip i backendens fælles spil. Handleren bestemmer, hvilken handling der kaldes, mens spilreglerne og tilstanden ligger i `GameSession` og `Yatzi.Core.Game`.
 
-Handleren er implementeret med automatiske tests uden fysisk hardware. HTTP-API, handler og lobby bruger samme spilsession. WebSocket-tilkoblingen fra #63 kræver serverparring i alle miljøer. Lobbyen ejer PAIR/JOINED, start og genforbindelse med STATE/WAIT. Trin 6 af #59 fører serverens PlayerId gennem handleren til sessionslåsen: kun første spillers aktuelle Oplà kan påvirke lobbyspillet efter start. Lobbyen koordinerer input med overtagelse og køer svar i rækkefølge. READY genbruger STATE-formatteringen uden at udføre spilhandlinger. Afleveringsstatus, merge og CI for #63 dokumenteres i [PR #80](https://github.com/Bmantaz/H3-Yatzi/pull/80). Fysisk integration udestår; se [lobbyens status](lobby.md).
+Handleren er implementeret med automatiske tests uden fysisk hardware. Efter lokal slutkontrol af #44 deler HTTP, handler og lobby samme GameSession og ordnede lobbykø. Kun den aktive spillers aktuelle Oplà kan kaste/holde; HTTP kræver desuden gameId, turnNumber og playerId. Lobbyen sender STATE/WAIT ved turskifte og END ved afslutning og READY. Se [aktuel implementering og kontrol](game-lifecycle.md#slutkontrol-af-44-i-trin-8). Historiske #63/#59-resultater nedenfor bevares. Frederiks brugeroplyste USB-kontrol gentages ikke, og #43 venter.
 
 ## Ansvar og dataflow
 
@@ -20,11 +20,11 @@ flowchart LR
     Access --> Lobby["LobbySession: binding og beskedrækkefølge"]
     Lobby --> Handler["OplaMessageHandler.HandleLine med PlayerId"]
     Handler --> Session["GameSession: identitet og handling under samme lås"]
-    Http["HTTP /api/game"] --> Session
+    Http["HTTP /api/game med kontekst"] --> Lobby
     Session --> Core["Yatzi.Core.Game"]
     Core --> Snapshot["Kopieret spiltilstand under låsen"]
     Snapshot --> Queue["Lobbyens ordnede svarbatch"]
-    Queue --> State["STATE til samme WebSocket"]
+    Queue --> State["STATE / WAIT / END til konkrete forbindelser"]
     Snapshot --> Json["JSON til HTTP-klienten"]
 ```
 
@@ -43,11 +43,11 @@ public IReadOnlyList<string> HandleLine(string? line, Guid? playerId = null,
 
 Metoden er synkron og modtager én komplet tekstlinje uden afsluttende linjeskift. Den returnerer en samling med nul eller flere svarlinjer, også uden linjeskift. De nuværende kommandoer giver præcis én linje ved succes og en tom samling ved afvisning eller debug.
 
-Handleren åbner ingen netværksforbindelse eller seriel-port og gemmer ingen spiller- eller forbindelsesspecifik tilstand. Sessionen kan indeholde ét selvstændigt spil eller 1–6 lobbydeltagere med egne pointtavler. Første deltager er fortsat aktiv; turskifte følger i #44.
+Handleren åbner ingen netværksforbindelse eller seriel-port og gemmer ingen spiller- eller forbindelsesspecifik tilstand. Sessionen kan indeholde ét selvstændigt spil eller 1–6 lobbydeltagere med egne pointtavler. Det aktuelle indeks følger spillerrotationen efter HTTP-score/strike. Efter sidste felt er spillet afsluttet, og yderligere handlinger afvises.
 
-`playerId` kommer fra serverens forbindelsesregister, aldrig fra tekstkommandoen. Handleren kalder `RollFromOpla` eller `ToggleHoldFromOpla`, som kræver første deltagers id i et lobbyspil. Manglende/tomt id, ukendte spillere og øvrige deltagere afvises med én Warning og intet svar. Annullering kontrolleres før handlingen, også efter ventetid på sessionslåsen, og videresendes uden Warning.
+`playerId` kommer fra serverens forbindelsesregister, aldrig fra tekstkommandoen. Handleren kalder `RollFromOpla` eller `ToggleHoldFromOpla`, som kræver den aktuelt aktive deltagers id i et lobbyspil. Manglende/tomt id, ukendte spillere og øvrige deltagere afvises med én Warning og intet svar. Annullering kontrolleres før handlingen, også efter ventetid på sessionslåsen, og videresendes uden Warning.
 
-Kald uden id og kontrolleret serverbinding bevarer selvstændig enkeltspillerbrug. Den identitetsløse signatur kan ikke omgå kontrollen i et lobbyspil. LobbySession afviser sine tilmeldte spillere før start, så de heller ikke kan ændre et eksisterende enkeltspillerspil. HTTP bruger sine hidtidige sessionsmetoder og påvirker fortsat første deltager.
+Kald uden id og kontrolleret serverbinding bevarer selvstændig enkeltspillerbrug. Den identitetsløse signatur kan ikke omgå kontrollen i et lobbyspil. LobbySession afviser sine tilmeldte spillere før start, så de heller ikke kan ændre et eksisterende enkeltspillerspil. HTTP kræver spil-/tur-/spillerkontekst og bruger samme kernekald gennem lobbyens koordinering. Score/strike flytter turen eller afslutter spillet. Oplà-kast/hold giver fortsat præcis ét STATE til afsenderen.
 
 ## Input og svar
 
@@ -83,11 +83,11 @@ Opret først et spil med `POST /api/game/new` og JSON-bodyen `{"name":"Andreas"}
 
 ## Pointvalg gennem HTTP
 
-`POST /api/game/score/{category}` og `/api/game/strike/{category}` bruger samme session som handleren. Efter første, andet eller tredje kast afslutter ét accepteret feltvalg turen og bevarer terninger, hold og brugte slag. Flere `ROLL`- og `HOLD n`-linjer afvises med én Warning pr. linje og en tom svarliste. Der sendes intet `STATE` ved afvisning.
+`POST /api/game/score/{category}` og `/api/game/strike/{category}` kræver nu JSON-kontekst og går gennem LobbySession til den fælles GameSession. Feltvalget gemmer ét felt og åbner næste spillers friske tur; kun sidste feltvalg bevarer kastet og afslutter spillet. Lobbyen køer STATE/WAIT eller END før låsen slippes. Gyldig kontekst efter afslutning giver HTTP 409. Oplà-ROLL/HOLD afvises efter afslutning med Warning og tomt svar.
 
 Et nyt selvstændigt spil gennem `/api/game/new` nulstiller pointtavle og turstatus. Et startet lobbyspil kan ikke nulstilles her og giver 409. Handleren bruger den fælles session. Se [API-kontrakten](api.md) og [pointreglerne](scoring.md).
 
-`STATE r hhhhh` er uændret. Pointvalg tilføjer ingen Oplà-kommandoer eller nye udsendelser. WAIT bruges ved lobbystart og READY for øvrige deltagere; turskifte og END følger i #44.
+`STATE r hhhhh`, `WAIT navn` og `END` er uændrede tekstformater. HTTP-kast og hold/slip opdaterer aktiv Oplà med én STATE. Handlerens accepterede rå input giver stadig kun én STATE til afsenderen. READY sender PAIR, JOINED og derpå aktuel STATE/WAIT/END. Tekstprotokollen har ingen spil-/turkontekst; forsinket rå input vurderes ved behandling og kan ikke få HTTP-kontraktens garanti mod gamle ture.
 
 ## Afvisninger og logging
 
@@ -110,10 +110,10 @@ LobbySession genkontrollerer binding og aktuel forbindelse under lobbylåsen og 
 | #59 | Lobby, parring, genforbindelse, minimal start og identitetskontrol i Oplà-handlinger. |
 | #61 | Browser-bro mellem USB/Web Serial og `/ws/opla`. |
 | #35 og #42 | Frontendens rigtige API-kald og løbende visning af ændringer. |
-| #44 | Næste tur, turskifte, END, vinder og spillets livscyklus. |
+| #44 | Implementeret og lokalt kontrolleret: næste tur, rotation, END, vindere, HTTP-kontekst, omkamp og frontend. GitHub-aflevering følger senere. |
 | #43 | Samlet fysisk test med Oplà, browser, server og frontend. |
 
-`/ws/opla` er tilkoblet den fælles handler, men producerer ingen rigtig parring før #59. Den eksisterende `/ws/spike` er fortsat et særskilt ekko-endpoint med en fast testkode. Ingen af de lokale backendtests dokumenterer en fysisk forbindelse til spillogikken.
+`/ws/opla` bruger lobbyens rigtige parring fra #59. `/ws/spike` er fortsat et særskilt ekko-endpoint. Backendtests og lokal in-memory HTTP-/WebSocket-kontrol dokumenterer ikke en ny fysisk test.
 
 ## Kørsel og tests
 

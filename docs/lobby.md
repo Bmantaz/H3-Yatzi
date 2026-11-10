@@ -2,7 +2,11 @@
 
 Denne specifikation beskriver den aftalte løsning til [#59 – Lobby og parring i backend](https://github.com/Bmantaz/H3-Yatzi/issues/59). Den fastlægger API-kontrakten til Frederiks lobby i #60, forbindelsen til WebSocket-transporten fra #63 og den interne rækkefølge for implementeringen.
 
-**Implementeret funktionalitet: trin 1–8 er gennemført.** Leverancen og dens merge-/CI-status dokumenteres i [PR #81](https://github.com/Bmantaz/H3-Yatzi/pull/81). READY/PAIR, GET/join, genforbindelse og spillestart for 1–6 deltagere fungerer. Første spillers aktuelle Oplà kan kaste og holde efter start; øvrige spillere afvises. STATE/WAIT genskabes ved READY, og `/api/game/new` kan ikke overskrive lobbyspillet. Færdigkriteriet for #59 er merge og grøn CI på main. Turskifte og næste tur følger i #44.
+**Læsestatus efter #44 trin 8, 10. november 2026:** Afsnittene frem til [#44-kontrakten](#kommende-kontrakt-for-44) bevarer #59 og dens historiske kontroller. På `a92c8a9` fungerede lobby/parring og første start, mens turskifte og omkamp manglede. Frederik har ifølge brugeren kontrolleret USB → browserbro → backend → skærm; kontrollen gentages ikke, og #43 venter.
+
+**Aktuel lokal adfærd efter #44 trin 8:** De 11 spilfelter fra trin 4 bevares. HTTP-handlinger kræver nu spil-/tur-/spillerkontekst og koordineres med Oplà-input, start og READY gennem samme lobbylås og ordnede kø. HTTP-kast/hold giver STATE til aktiv Oplà, feltvalg STATE/WAIT og afslutning END til aktuelle deltagere. READY giver PAIR, JOINED og STATE/WAIT/END. Join returnerer nu joinedPlayerId for netop requestens accepterede spiller, mens GET stadig kun har players og started. Frakobling bevarer turen og forhindrer ikke korrekt browserreserve. `/api/lobby/restart` er nu implementeret: enhver deltager kan efter afslutning starte omkamp, når alle er forbundne, med samme id’er, navne, rækkefølge og parringer. Frontenden bruger nu joinedPlayerId direkte og viser Omkamp for tilmeldte deltagere på slutskærmen. Knappen er deaktiveret ved frakoblede deltagere, mens browserreserven under spillet stadig kan bruges. Polling opdaterer også forbindelser på spil- og slutskærmen. Se [implementering og samlet lokal slutkontrol](game-lifecycle.md#slutkontrol-af-44-i-trin-8).
+
+**Historisk leverance af #59: trin 1–8 er gennemført.** Leverancen og dens merge-/CI-status dokumenteres i [PR #81](https://github.com/Bmantaz/H3-Yatzi/pull/81). READY/PAIR, GET/join, genforbindelse og spillestart for 1–6 deltagere fungerer. Første spillers aktuelle Oplà kan kaste og holde efter start; øvrige spillere afvises. STATE/WAIT genskabes ved READY, og `/api/game/new` kan ikke overskrive lobbyspillet. Færdigkriteriet for #59 er merge og grøn CI på main. Turskifte og næste tur følger i #44.
 
 ## Grundlag og afgrænsning
 
@@ -329,3 +333,121 @@ Følgende er acceptscenarier for hele #59. Funktionaliteten er implementeret i t
 Ved kodetrinene køres relevante tests, og ved samlet slutkontrol køres hele løsningen. Ingen test markeres bestået, før den er kørt med den relevante implementering.
 
 Fysisk Oplà, browserens lobby, USB/WiFi og tunnel kræver fortsat særskilt integrationstest. Når disse dele er klar, skal en praktisk prøve vise kode på Oplàen, korrekt JOINED, STATE til første spiller, WAIT til de øvrige samt genforbindelse med bevarede point og uden ekstra kast. Denne prøve er endnu ikke udført.
+
+## Kommende kontrakt for #44
+
+**Aftalt i trin 1 – implementeret og lokalt slutkontrolleret gennem trin 8.** GitHub-aflevering følger senere. Join-svarets joinedPlayerId, HTTP-kontekst, de udvidede spilsvar, controllerudsendelser og omkampsruten nedenfor er implementeret. Se [samlede kontrolresultater og krav/test-matrix](game-lifecycle.md#slutkontrol-af-44-i-trin-8). De tidligere afsnit bevarer #59 som historik.
+
+### Tilmelding og entydigt spiller-id
+
+GET /api/lobby bevarer præcis sin nuværende form med `players` og `started`. `POST /api/lobby/join` beholder requesten `{"name":"Alex","code":"1377"}`, de eksisterende validerings-/fejlregler og HTTP 200 med den opdaterede lobby. Kun join-svaret udvides med et obligatorisk `joinedPlayerId`, der er den spilleridentitet, netop denne request oprettede.
+
+Et fuldt join-svar kan indeholde begge Alex-spillere efter samtidige tilmeldinger:
+
+```json
+{
+  "players": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Alex",
+      "connected": true
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "name": "Alex",
+      "connected": true
+    }
+  ],
+  "started": false,
+  "joinedPlayerId": "22222222-2222-4222-8222-222222222222"
+}
+```
+
+Browseren gemmer joinedPlayerId som eget playerId i sessionStorage og finder sit indeks ved id i den faste deltagerrækkefølge. Dette er implementeret i trin 7; join med started=true skifter til spillet efter at have gemt netop requestens id. En startet lobby tilsidesætter et gammelt enkeltspillerflag, og et id, der ikke længere er tilmeldt, ryddes. Den må ikke vælge den sidste spiller med samme navn. Join-resultatet fastholder den accepterede identitet, selv om et andet join eller start når at ændre lobbyen, før det friske lobbyøjebliksbillede returneres. JOINED sendes fortsat kun til den tilmeldtes konkrete Oplà-forbindelse. Ens navne er tilladte og giver forskellige id'er.
+
+### Første start og låst lobby
+
+`POST /api/lobby/start` bruger fortsat ingen body og kræver 1–6 tilmeldte, forbundne deltagere. Første start opretter nyt gameId og det [udvidede spil-JSON](api.md#udvidet-spiltilstand). Første spiller får STATE 0 00000, resten WAIT med første spillers navn. Et nyt startkald erstatter ikke omkampsruten.
+
+Efter start forbliver `started=true`, også på slutskærmen og efter omkamp. Deltagerlisten, rækkefølgen, id'erne og parringskoderne genbruges. Nye joins er stadig afvist med den eksisterende 409-fejl. `/api/game/new` forbliver afvist med 409 i et startet lobbyspil; den rute gælder kun selvstændig enkeltspiller.
+
+### Omkamp
+
+**Backend implementeret i #44 trin 6; frontendknappen tilsluttet i trin 7.** Requests, svar og fejlcases er dækket automatisk. Node-tests, rigtig Chrome og separate lokale Production-prøver med HTTP/WebSocket består. Browserprøven omfatter omkamp fra anden deltager, afvisning af gammel omkamp, fejltekst gennem polling og genindlæst identitet; Production-prøverne dækker 1, 2 og 6 deltagere med to hele spil og to omkampe hver.
+
+Den nye rute `POST /api/lobby/restart` bruger `Content-Type: application/json` og følgende body:
+
+```json
+{
+  "gameId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "playerId": "11111111-1111-4111-8111-111111111111"
+}
+```
+
+Begge felter er obligatorisk tekst med gyldige, ikke-tomme GUID'er. gameId identificerer det afsluttede spil; playerId er initiativtagerens tilmeldte id. turnNumber bruges ikke, fordi omkampen vedrører hele det afsluttede spil. Ukendte JSON-felter ignoreres.
+
+Accept kræver samtidigt:
+
+- gameId matcher serverens aktuelle, afsluttede lobbyspil.
+- Initiativtageren er en af de tilmeldte deltagere. Der er ingen særskilt værtsrolle; enhver deltager kan starte omkamp.
+- Alle deltagere har en aktuel, åben Oplà-forbindelse med den korrekte serverbinding.
+
+LobbySession indsamler konkrete modtagere og kontrollerer deres åbne bindinger under lobbylåsen. GameSession.RestartLobbyGame kontrollerer spil-id, lobbytilstand, medlemskab og afslutning under sessionslåsen og vurderer derefter lobbyens booleske forbindelsesforudsætning. Metoden opretter nye Game-instanser ud fra de eksisterende deltagere med samme tilfældighedskilde. Annullering kontrolleres før og efter ventetid på låsene og lige før udskiftning. Kontrol, frisk spiloprettelse og reservation af STATE/WAIT-batches koordineres under den eksisterende låserækkefølge lobby → spilsession. Ingen netværksafventning sker under tilstandslåsene. HTTP 200 indeholder et fuldt, kopieret spiløjebliksbillede med følgende startværdier, her vist som svarudsnit:
+
+```json
+{
+  "gameId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "turnNumber": 1,
+  "currentPlayer": 0,
+  "dice": [0, 0, 0, 0, 0],
+  "held": [false, false, false, false, false],
+  "rollsUsed": 0,
+  "possibleScores": {},
+  "turnCompleted": false,
+  "gameCompleted": false,
+  "winnerIndices": []
+}
+```
+
+Alle 15 felter hos alle spillere er null, og upperSum, bonus og total er 0. Samme id'er, navne, koder og rækkefølge bevares; intet kast sker automatisk. Første spiller modtager STATE 0 00000, øvrige spillere WAIT med første spillers navn. Et sendesvigt efter accept fortryder ikke omkampen eller et ellers aktivt HTTP-requests 200-resultat. Genforbindelse genskaber den accepterede tilstand.
+
+To samtidige omkampsrequests med samme afsluttede gameId kan højst give én accept. Efter accept er det gamle gameId forældet, så den anden request afvises. Serveren genstarter aldrig det nye spil igen som følge af den gamle request. Klienten genafspiller ikke omkampsrequesten automatisk. Den fastholder gameId og eget playerId ved klik, opdaterer visningen ved 409 og bevarer den danske fejltekst gennem efterfølgende polling. Tilskuere har ingen omkampsknap. Enkeltspillerens Nyt spil går fortsat tilbage til lobbyen og bruger /api/game/new ved næste oprettelse.
+
+### Fejl ved omkamp
+
+Fejl er danske JSON-objekter med `message`. Hele slutresultatet og lobbyen bevares ved afvisning. Fejlprioriteten er JSON-format og felter i rækkefølgen gameId, playerId → manglende spil → gameId-match → startet lobbyspil → deltagerrelation → afsluttet spil → aktuelle forbindelser.
+
+| Situation | Status | Aftalt message |
+|---|---|---|
+| Body mangler, er ugyldig JSON eller er ikke et objekt | 400 | Requesten skal indeholde et gyldigt JSON-objekt. |
+| Manglende eller ugyldigt gameId | 400 | gameId skal være et gyldigt, ikke-tomt GUID. |
+| Manglende eller ugyldigt playerId, inklusive null | 400 | playerId skal være et gyldigt, ikke-tomt GUID. |
+| Intet spil er oprettet | 404 | Der er ikke oprettet et spil. Start et nyt spil først. |
+| gameId matcher ikke det aktuelle spil | 409 | Spillet er ikke længere aktuelt. Hent spiltilstanden igen. |
+| Det aktuelle spil er ikke et startet lobbyspil | 409 | Der er ikke et startet lobbyspil at genstarte. |
+| Initiativtageren er ikke tilmeldt | 409 | Spilleren deltager ikke i dette lobbyspil. |
+| Lobbyspillet er stadig aktivt | 409 | Spillet skal være afsluttet før omkamp. |
+| Mindst én deltager er frakoblet eller mangler sin aktuelle binding | 409 | Alle tilmeldte spillere skal være forbundet før omkamp. |
+
+playerId angiver en spilrelation, ikke et login eller en hemmelig værtsnøgle. Tilskuere har ingen deltagerknap i frontend, og en manglende eller uvedkommende identitet afvises som beskrevet. Der indføres ingen ny autentifikation i #44.
+
+### Afbrydelse, READY og beskedrækkefølge
+
+Ved afbrydelse bevares deltager, tur, point og parring. Den aktive spiller springes ikke over. Browserens reservehandlinger kan accepteres med korrekt spil-/turkontekst, selv om Oplàen er frakoblet. Start og omkamp kræver derimod alle tilmeldte deltagere forbundne ved serverens accepterede kontrol; et senere udfald fortryder ikke accepten.
+
+READY på den aktuelle tilmeldte forbindelse sender altid PAIR og JOINED, derefter:
+
+| Servertilstand | Sidste besked i READY-batchet |
+|---|---|
+| Lobby før start | Ingen ekstra besked. |
+| Aktivt spil, spilleren har tur | STATE med aktuelle slag og hold. |
+| Aktivt spil, en anden har tur | WAIT med den aktive spillers navn. |
+| Afsluttet spil | END. |
+
+De eksisterende formater og transportsikringer bevares. Gamle batches beholder deres konkrete modtager, og sen gammel oprydning må ikke lukke en ny overtager. Feltvalg og omkamp reserverer svar i samme kø som READY og Oplà-input, så statusbeskeder ikke overhaler hinanden på samme forbindelse. Afsendelsesfejl eller annullering genudfører ingen accepteret handling. Oplàens tekstbeskeder indeholder fortsat ikke gameId/turnNumber og fortolkes ved serverens behandling.
+
+### Acceptgrundlag og status
+
+[Scenarier A–H](game-lifecycle.md#konkrete-acceptscenarier) beskriver første start, rotation, enkeltspiller, sidste felt, uafgjort, gamle requests, afbrydelse og omkamp. Join-eksemplet ovenfor er yderligere acceptgrundlag for samtidige tilmeldinger med ens navne. Kontrakterne i A–H er nu dækket gennem trin 6. De faste eksempelværdier er illustrative og beskrives ikke som optagne testsvar. To hele spil og to omkampe med bevarede parringer er kontrolleret via HTTP/WebSocket med 1, 2 og 6 spillere i Development, Production, Staging og Test. Se [trin 6 og faktiske kontroller](game-lifecycle.md#implementeret-omkamp-i-trin-6).
+
+Den brugeroplyste USB-kontrol fra Frederik er grundlaget for at gå videre uden en ny fysisk indledende prøve. #43 venter og lukkes ikke af #44 trin 1. Der tilføjes ikke WiFi, database eller login, og den lokale noCase-tilpasning holdes uden for fællesprojektets leverance.

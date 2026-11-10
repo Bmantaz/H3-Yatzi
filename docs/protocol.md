@@ -2,6 +2,8 @@
 
 > DoD 5. Aftalt i S1.1 af Bjarke, Andreas og Abdi. Ændringer i protokollen laves via PR og godkendes af alle tre.
 
+**Status efter lokal slutkontrol af #44, 10. november 2026:** De eksisterende tekstbeskeder og wireformater er bevaret. Lobbyen udsender nu STATE/WAIT ved turskifte og END ved afslutning; READY giver PAIR, JOINED og aktuel STATE/WAIT/END. Omkamp genbruger spillere og parringer. Rå Oplà-input har fortsat ingen gameId/turnNumber og valideres ved behandling. HTTP bruger sin separate [handlingskontekst](api.md#kommende-kontrakt-for-44). Se [verificeret softwareadfærd og kontrolgrænser](game-lifecycle.md#slutkontrol-af-44-i-trin-8). Software-Oplà-klienter, rigtig Chrome og Arduino-kompilering er kontrolleret; Frederiks brugeroplyste USB-kontrol gentages ikke, og #43 venter. Transportvalg, WiFi-planer og protokolaftalen nedenfor er bevaret.
+
 ## Overblik
 
 - **Én Oplà og én PC pr. spiller.** Spillerne sidder **hver for sig** (forskellige hjem og netværk).

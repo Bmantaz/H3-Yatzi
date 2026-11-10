@@ -2,15 +2,17 @@
 
 Denne specifikation fastlægger regler, pointtavle, feltvalg og HTTP-kontrakten til [#40 – Pointberegning for alle 15 felter + bonus](https://github.com/Bmantaz/H3-Yatzi/issues/40). Den er fælles reference for backendens implementering og tests og for Frederiks pointtavle i #41.
 
-**Status ved slutkontrollen:** Implementeringen fra step 1–7 er gennemgået. Alle seks spil-endpoints returnerer pointtavle, mulige point og turstatus efter kontrakten nedenfor. [ScoreCategoryIds](../backend/Yatzi.Api/ScoreCategoryIds.cs) oversætter de 15 præcise tekst-id'er; [GameSession](../backend/Yatzi.Api/GameSession.cs) udfører handling og kopiering under samme lås. Beregningsadfærd og turregler i [Game](../backend/Yatzi.Core/Game.cs), [Scorecard](../backend/Yatzi.Core/Scorecard.cs), [ScoreCategory](../backend/Yatzi.Core/ScoreCategory.cs) og [ScoreCalculator](../backend/Yatzi.Core/ScoreCalculator.cs) er bevaret. Slutkontrollen rettede forældede kommentarer om integrationen; der blev ikke fundet funktionelle fejl.
+**Historisk status ved slutkontrollen af #40:** Implementeringen fra step 1–7 er gennemgået. Alle seks spil-endpoints returnerer pointtavle, mulige point og turstatus efter kontrakten nedenfor. [ScoreCategoryIds](../backend/Yatzi.Api/ScoreCategoryIds.cs) oversætter de 15 præcise tekst-id'er; [GameSession](../backend/Yatzi.Api/GameSession.cs) udfører handling og kopiering under samme lås. Beregningsadfærd og turregler i [Game](../backend/Yatzi.Core/Game.cs), [Scorecard](../backend/Yatzi.Core/Scorecard.cs), [ScoreCategory](../backend/Yatzi.Core/ScoreCategory.cs) og [ScoreCalculator](../backend/Yatzi.Core/ScoreCalculator.cs) er bevaret. Slutkontrollen rettede forældede kommentarer om integrationen; der blev ikke fundet funktionelle fejl.
 
-**Automatisk verificeret lokalt ved slutkontrollen:** Release-buildet bestod med 0 fejl og 0 advarsler. Alle 612 testcases bestod: de 531 cases fra step 1–6 og de 81 fra step 7. Sidstnævnte fordeler sig på 61 [HTTP-pointtests](../backend/Yatzi.Tests/GameScoringApiTests.cs), fire [sessionstests](../backend/Yatzi.Tests/GameSessionTests.cs), 12 [handler-tests](../backend/Yatzi.Tests/OplaMessageHandlerTests.cs) og fire [handler-integrationstests](../backend/Yatzi.Tests/OplaMessageHandlerIntegrationTests.cs). De dækker alle 15 id'er, feltvalg efter 1–3 kast, nulresultater, fejlprioritet, uændrede afvisninger, kopierede arrays og dictionaries, konkurrerende feltvalg, samtidige kast og handlerhandlinger samt nyt spil. De eksisterende kerneprøver for bonusgrænsen 62/63/64 og maksimum 374 er bevaret.
+**Historisk automatisk kontrol af #40:** Release-buildet bestod med 0 fejl og 0 advarsler. Alle 612 testcases bestod: de 531 cases fra step 1–6 og de 81 fra step 7. Sidstnævnte fordeler sig på 61 [HTTP-pointtests](../backend/Yatzi.Tests/GameScoringApiTests.cs), fire [sessionstests](../backend/Yatzi.Tests/GameSessionTests.cs), 12 [handler-tests](../backend/Yatzi.Tests/OplaMessageHandlerTests.cs) og fire [handler-integrationstests](../backend/Yatzi.Tests/OplaMessageHandlerIntegrationTests.cs). De dækker alle 15 id'er, feltvalg efter 1–3 kast, nulresultater, fejlprioritet, uændrede afvisninger, kopierede arrays og dictionaries, konkurrerende feltvalg, samtidige kast og handlerhandlinger samt nyt spil. De eksisterende kerneprøver for bonusgrænsen 62/63/64 og maksimum 374 er bevaret.
 
-Session- og HTTP-integrationen er implementeret og automatisk testet uden fysisk hardware. [api.md](api.md) beskriver den aktuelle kontrakt, og eksemplerne nedenfor viser det implementerede format. Afleveringsstatus og CI dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76); afslutningskravene til #40 står nederst i denne specifikation. Frontendens pointtavle følger i #41, næste tur og multiplayer i #44 og den samlede fysiske forbindelse i #43.
+Den historiske #40-integration blev automatisk testet uden fysisk hardware. [api.md](api.md) beskriver den aktuelle #44-kontrakt; pointreglerne nedenfor er bevaret, mens #40’s HTTP-eksempler og kontroltal læses som historik. Afleveringsstatus og CI dokumenteres i [PR #76](https://github.com/Bmantaz/H3-Yatzi/pull/76); afslutningskravene til #40 står nederst i denne specifikation. Frontendens pointtavle følger i #41, næste tur og multiplayer i #44 og den samlede fysiske forbindelse i #43.
+
+**Aktuel lokal adfærd efter #44:** Pointregler og felt-id’er er bevaret. Game afslutter stadig kun sin egen tur; GameSession registrerer feltet, roterer 1–6 deltagere og åbner næste tur uden automatisk kast. Scorecard.IsComplete og Game.IsScorecardComplete tæller også gemte nuller som udfyldte. Efter alle 15 felter pr. spiller returneres gameCompleted og alle winnerIndices ud fra total inklusive bonus. HTTP kræver gameId/turnNumber/playerId, og omkamp opretter friske tavler med samme deltagere og parringer. Frontenden bruger serverens resultat. Se den [aktuelle kontrakt](api.md#kommende-kontrakt-for-44) og [slutkontrol med krav/test-matrix](game-lifecycle.md#slutkontrol-af-44-i-trin-8).
 
 ## Grundlag og beslutninger
 
-**Aktuel udvidelse i #59 trin 5–6:** [Lobbystart](lobby.md) opretter 1–6 deltagere med hver sin Game og pointtavle. HTTP-kast, hold og feltvalg påvirker første deltager. Første spillers aktuelle Oplà kan kaste/holde efter identitetskontrol under samme sessionslås som handlingen. Øvrige tavler bevares, og feltvalg låser første tur uden turskifte. Spillets kerne og pointregler er uændrede. Næste tur følger i #44; de historiske #40-resultater ovenfor er bevaret.
+**Historisk udvidelse i #59 trin 5–6:** [Lobbystart](lobby.md) opretter 1–6 deltagere med hver sin Game og pointtavle. HTTP-kast, hold og feltvalg påvirker første deltager. Første spillers aktuelle Oplà kan kaste/holde efter identitetskontrol under samme sessionslås som handlingen. Øvrige tavler bevares, og feltvalg låser første tur uden turskifte. Spillets kerne og pointregler er uændrede. Næste tur følger i #44; de historiske #40-resultater ovenfor er bevaret.
 
 | Kilde | Betydning for specifikationen |
 |---|---|
@@ -21,7 +23,7 @@ Session- og HTTP-integrationen er implementeret og automatisk testet uden fysisk
 
 **Vores fortolkning af udgiverreglerne:** Når et kast indeholder flere ens terninger end en kombination kræver, må de nødvendige terninger bruges som en delkombination. Et par kræver derfor mindst to ens, tre ens mindst tre og fire ens mindst fire. Udgiverreglernes formulering om kast, der indeholder kombinationen, omsættes her til præcise betingelser; reglerne opstiller ikke selv en særskilt tabel over alle delkombinationer.
 
-**Aftalte projektvalg:** Strygning tillades også i et felt, der kunne give point. Et accepteret feltvalg afslutter og låser turen; næste tur tilføjes i #44. Felt-id'er, JSON-format, HTTP-fejl og samtidighed nedenfor er tekniske beslutninger for projektet.
+**Aftalte projektvalg:** Strygning tillades også i et felt, der kunne give point. Et accepteret feltvalg afslutter den individuelle tur; sessionen åbner nu næste tur som del af #44. Felt-id'er, JSON-format, HTTP-fejl og samtidighed nedenfor er tekniske beslutninger for projektet.
 
 Der indføres ingen ekstra bonus eller jokerregel ved gentagne Yatzy-kast. Et senere kast med fem ens kan bruges i andre ledige felter efter de samme beregningsregler.
 
@@ -88,10 +90,12 @@ Tavlen kender ingen tur, spillerliste eller netværksforbindelse og har ingen eg
 | `IReadOnlyDictionary<ScoreCategory, int> PossibleScores` | Et nyt, skrivebeskyttet øjebliksbillede af pointene for ledige felter ved hver læsning. |
 | `void Score(ScoreCategory category)` | Kalder tavlens `Record` med spillets egne `Dice` og afslutter turen efter vellykket registrering. |
 | `void Strike(ScoreCategory category)` | Kalder tavlens `Strike` og afslutter turen efter vellykket registrering. |
+| `bool IsScorecardComplete` | Tilføjet i #44: viderestiller tavlens beregnede IsComplete uden skrivbar adgang. |
+| `void StartNextTurn()` | Tilføjet i #44: åbner eksplicit en ny tur efter feltvalg, hvis tavlen ikke er fuld. |
 
 Begge feltvalg validerer først enum-værdien, derefter åben tur og mindst ét kast. Et ukendt felt giver `ArgumentOutOfRangeException` med parameteren `category` og forklaringen `Pointfeltet er ukendt.`. Regelafvisninger giver `InvalidOperationException` med de aftalte danske beskeder i fejltabellen nedenfor. Pointtavlen kontrollerer fortsat, at feltet er ledigt. Turen låses først, når tavlens skrivning er lykkedes.
 
-`Roll` kontrollerer afsluttet tur før slaggrænsen og tilfældighedskilden. `ToggleHold` bevarer indeksvalideringen først og kontrollerer derefter afsluttet tur før de eksisterende kastbetingelser. Et gentaget gyldigt feltvalg i en afsluttet tur giver derfor turbeskeden frem for beskeden om udfyldt felt. Der er ingen offentlig funktion til at åbne turen igen.
+`Roll` kontrollerer afsluttet tur før slaggrænsen og tilfældighedskilden. `ToggleHold` bevarer indeksvalideringen først og kontrollerer derefter afsluttet tur før de eksisterende kastbetingelser. Et gentaget gyldigt feltvalg i en afsluttet tur giver derfor turbeskeden frem for beskeden om udfyldt felt. I #40 var der ingen offentlig funktion til at åbne turen igen. #44 tilføjer Game.StartNextTurn(), som kræver afsluttet tur og ledige felter og nulstiller turdata uden at ændre tavle, bonus eller tilfældighedskilde.
 
 `PossibleScores` er tom før første kast og efter turafslutning. Ellers beregnes ledige felter gennem `ScoreCalculator.Calculate`, også når resultatet er 0. Læsning ændrer ingen spiltilstand og bruger ingen tilfældighed; senere kast ændrer ikke tidligere returnerede øjebliksbilleder. `Scores` følger derimod legitime feltvalg som en løbende visning. API-laget kopierer de relevante data til sine svar i step 7.
 
@@ -105,16 +109,16 @@ Placering og strygning kræver et oprettet spil, en ikke-afsluttet tur, mindst �
 
 **Strygning:** Serveren gemmer 0 i det valgte felt, også hvis kastet kunne give point dér. Frontendens bekræftelse ved 0 point hører til #41.
 
-Et accepteret feltvalg udfører samlet følgende:
+Kernens individuelle Game udfører samlet følgende efter et accepteret feltvalg:
 
 1. Gemmer point i præcis ét felt og opdaterer de beregnede summer.
 2. Sætter `turnCompleted` til `true`.
-3. Bevarer `dice`, `held`, `rollsUsed` og `currentPlayer` som turens resultat.
+3. Bevarer sine `dice`, `held` og `rollsUsed` som turens resultat.
 4. Gør `possibleScores` tomt og afviser efterfølgende kast, hold/slip og feltvalg.
 
-En afvist handling ændrer ingen tilstand. Et afvist feltvalg afslutter derfor heller ikke turen. Der oprettes ingen offentlig funktion til at åbne turen igen i #40.
+En afvist handling ændrer ingen tilstand. Et afvist feltvalg afslutter derfor heller ikke turen. GameSession fortsætter efter en accepteret registrering med rotation og eventuel StartNextTurn under samme lås. Et normalt HTTP-svar viser derfor næste deltagers friske tur med turnCompleted=false. Efter spillets sidste felt bevares sidste kast og currentPlayer, turnCompleted=true, gameCompleted=true og ingen ekstra tur.
 
-**Midlertidig grænse til #44:** Efter det første accepterede feltvalg kan det nuværende spil læses, men næste tur er endnu ikke implementeret. Det gælder også med én spiller. Før lobbystart kan `/api/game/new` erstatte et selvstændigt spil og nulstille point og `turnCompleted`. Efter accepteret lobbystart afvises denne nulstilling med 409; et lobbyspil kan ikke genstartes før livscyklussen i #44. En servergenstart rydder hukommelsen.
+**Livscyklus efter #44:** Alle 15 felter pr. deltager kan udfyldes gennem API’et. Et nyt selvstændigt spil oprettes fortsat med /api/game/new; ruten kan ikke overskrive et startet lobbyspil. Et afsluttet lobbyspil kan efterfølges af omkamp gennem /api/lobby/restart med samme spillere, rækkefølge og parringer, når alle er forbundne. Servergenstart rydder fortsat hukommelsen.
 
 ## Ansvar og dataflow
 
@@ -132,7 +136,7 @@ Spiltilstanden forbliver i hukommelsen og går tabt ved servergenstart. Der tilf
 
 ## HTTP-kontrakt implementeret i step 7
 
-**Denne udvidelse er implementeret og automatisk testet i API'et.** De eksisterende felter `players`, `currentPlayer`, `dice`, `held` og `rollsUsed` bevarer deres betydning. #40's eksempler nedenfor viser ét selvstændigt spil; #59 trin 5 tillader 1–6 deltagere fra lobbystart. `currentPlayer` er fortsat 0, indtil #44 tilføjer turskifte.
+**Historisk HTTP-kontrakt for #40.** Eksemplerne og fejlprioriteten i dette afsnit dokumenterer #40’s oprindelige format; den aktuelle 11-felts kontrakt med obligatoriske handlingsbodies findes i [api.md](api.md#kommende-kontrakt-for-44). De eksisterende felter `players`, `currentPlayer`, `dice`, `held` og `rollsUsed` bevarer deres betydning. #40's eksempler nedenfor viser ét selvstændigt spil; #59 trin 5 tillader 1–6 deltagere fra lobbystart. Efter #44 følger currentPlayer nu rotationen; de historiske eksempler nedenfor bruger spiller 0.
 
 ### Spiltilstand
 
@@ -397,7 +401,7 @@ Alle 15 felter dækkes efter step 4 med gyldige resultater og relevante nulresul
 | Tidligere returnerede svar og ændringer af deres objekter | Påvirker hverken interne data eller andre svar. |
 | De eksisterende HTTP-endpoints og tests | Bevar eksisterende adfærd; opdatér forventet JSON-format bevidst sammen med kontrakten. |
 
-Grænsetilfælde for pointtavlen og genbrug af felter kan testes direkte i kernen, også inden #44 gør flere ture mulige gennem API'et. Et fuldt spil med flere ture eller spillere er ikke et verificeret resultat af #40.
+Grænsetilfælde for pointtavlen og genbrug af felter kan testes direkte i kernen, også inden #44 gør flere ture mulige gennem API'et. Et fuldt spil med flere ture eller spillere var ikke et verificeret resultat af #40. Det er nu kontrolleret i #44; resultatet står i livscyklussens krav/test-matrix.
 
 ## Afgrænsning og aflevering
 
