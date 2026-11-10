@@ -20,6 +20,10 @@ builder.Services.AddSingleton<IOplaReadyHandler>(services => services.GetRequire
 
 var app = builder.Build();
 
+// Efter Build er også integrationstestenes konfiguration tilgængelig.
+// En ugyldig offentlig adresse stopper opstarten, før serveren accepterer requests.
+TunnelStartup.LogPublicAddresses(app.Configuration, app.Logger);
+
 // Begge WebSocket-endpoints bruger samme middleware. Registreringen er uafhængig af spiken.
 app.UseWebSockets();
 
