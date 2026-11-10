@@ -11,3 +11,4 @@ void showJoined(const String& name);  // JOINED navn – parret med spilleren
 void showWait(const String& name);    // WAIT navn   – "Vent – navn"
 void showTurn(int rolls);             // STATE r …   – "Slag r/3"
 void showEnd();                       // END         – "Slut"
+void showTransport();                 // S3.9: lille "USB"/"WiFi" nederst (efter linkUsesWifi())
