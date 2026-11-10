@@ -2,7 +2,7 @@
 
 Planen dækker [#44 – S3.1](https://github.com/Bmantaz/H3-Yatzi/issues/44): et spil for 1–6 spillere, næste spiller efter feltvalg, STATE/WAIT/END, spilafslutning, vinder inklusive uafgjort og mulighed for et nyt spil.
 
-**Status 10. november 2026:** Alle lokale trin 1–8 er gennemført og kontrolleret. Rigtig Chrome, Production-forløb med 1/2/6 deltagere, 39 frontendtests, 1.379 backendtests og Arduino-kompilering af fællessketchen består. Release-build har 0 fejl/0 advarsler, og dokumentation, JSON-eksempler, links og samlet diff er kontrolleret. Arbejdsbranchen `S3-1-turskifte` blev oprettet fra main på `a92c8a9` og har nu integreret WiFi/USB fra PR #86 på `db3abab`. Den nye [kontrol før PR](#kontrol-før-pr-efter-integration-af-main) består med samme testantal. Aflevering sker via PR; merge og grøn CI på main håndteres særskilt.
+**Status 10. november 2026:** Alle lokale trin 1–8 er gennemført og kontrolleret. Rigtig Chrome, Production-forløb med 1/2/6 deltagere, 39 frontendtests, 1.379 backendtests og Arduino-kompilering af fællessketchen består. Release-build har 0 fejl/0 advarsler, og dokumentation, JSON-eksempler, links og samlet diff er kontrolleret. Arbejdsbranchen `S3-1-turskifte` blev oprettet fra main på `a92c8a9` og har nu integreret WiFi/USB fra PR #86 på `db3abab`. Den nye [kontrol før PR](#kontrol-før-pr-efter-integration-af-main) består med samme testantal. Afleveringsstatus, verificerede commits og CI før/efter merge dokumenteres i [PR #87](https://github.com/Bmantaz/H3-Yatzi/pull/87). Færdigkravet for #44 er merge og grøn CI på main.
 
 ## Grundlag og afgrænsning
 
@@ -144,9 +144,9 @@ Tests tilføjes sammen med den funktionalitet, de kontrollerer. Eksisterende tes
 
 **Implementering og kontrol:** Se [slutkontrol, krav/test-matrix og kontrolgrænser](#slutkontrol-af-44-i-trin-8). Trin 7 og 8 er markeret færdige efter bestået browser- og slutkontrol. Se den efterfølgende [kontrol før PR](#kontrol-før-pr-efter-integration-af-main).
 
-## Senere aflevering
+## Aflevering på GitHub
 
-Den lokale implementering afslutter ikke GitHub-issuet. #44 har som færdigkrav en PR med `Closes #44`, merge til main og grøn CI. Afleveringen sker fra `S3-1-turskifte` til `main` med en almindelig PR. PR-beskrivelsen dokumenterer den seneste commit og CI-status. Der bruges ingen auto-merge eller manuel issue-lukning; en senere merge og grøn CI på main afslutter færdigkravet.
+Den lokale implementering alene opfylder ikke GitHub-afleveringen. #44 har som færdigkrav en PR med `Closes #44`, merge til main og grøn CI. Leverancen findes i [PR #87](https://github.com/Bmantaz/H3-Yatzi/pull/87) fra `S3-1-turskifte` til `main`. PR-beskrivelsen dokumenterer det verificerede PR-hoved, merge-commit og CI før/efter merge. GitHub lukker issuet gennem Closes-referencen ved merge; færdigkravet er opfyldt, når også CI på merge-committen består. Der bruges ingen auto-merge eller manuel issue-lukning.
 
 ## Implementeret kerne i trin 2
 
@@ -443,7 +443,7 @@ Krav/test-matrixen ovenfor gælder fortsat og er underbygget af disse nye kørsl
 
 ## Aftalt specifikation for #44
 
-**Samlet mål for #44 – implementeret og lokalt kontrolleret.** Aftalerne fra trin 1 er implementeret for rotation, spilfelter, slutstatus, vindere, HTTP-kontekst, joinedPlayerId, controllerbeskeder, omkamp og frontendtilslutning. Rigtig browser, lokal server, automatiske tests og Arduino-kompilering er kontrolleret i trin 8. GitHub-aflevering gennem PR/merge og grøn CI følger senere. De følgende eksempler er fortsat det aftalte acceptgrundlag; konkrete kontrolresultater står i implementeringsafsnittene ovenfor.
+**Samlet mål for #44 – implementeret og lokalt kontrolleret.** Aftalerne fra trin 1 er implementeret for rotation, spilfelter, slutstatus, vindere, HTTP-kontekst, joinedPlayerId, controllerbeskeder, omkamp og frontendtilslutning. Rigtig browser, lokal server, automatiske tests og Arduino-kompilering er kontrolleret i trin 8. Leverancens merge- og CI-status dokumenteres i [PR #87](https://github.com/Bmantaz/H3-Yatzi/pull/87). De følgende eksempler er fortsat det aftalte acceptgrundlag; konkrete kontrolresultater står i implementeringsafsnittene ovenfor.
 
 ### Beslutninger og spiltilstand
 

@@ -338,7 +338,7 @@ Fysisk Oplà, browserens lobby, USB/WiFi og tunnel kræver fortsat særskilt int
 
 ## Kommende kontrakt for #44
 
-**Aftalt i trin 1 – implementeret og lokalt slutkontrolleret gennem trin 8.** GitHub-aflevering følger senere. Join-svarets joinedPlayerId, HTTP-kontekst, de udvidede spilsvar, controllerudsendelser og omkampsruten nedenfor er implementeret. Se [samlede kontrolresultater og krav/test-matrix](game-lifecycle.md#slutkontrol-af-44-i-trin-8). De tidligere afsnit bevarer #59 som historik.
+**Aftalt i trin 1 – implementeret og lokalt slutkontrolleret gennem trin 8.** Afleverings-, merge- og CI-status dokumenteres i [PR #87](https://github.com/Bmantaz/H3-Yatzi/pull/87). Join-svarets joinedPlayerId, HTTP-kontekst, de udvidede spilsvar, controllerudsendelser og omkampsruten nedenfor er implementeret. Se [samlede kontrolresultater og krav/test-matrix](game-lifecycle.md#slutkontrol-af-44-i-trin-8). De tidligere afsnit bevarer #59 som historik.
 
 ### Tilmelding og entydigt spiller-id
 

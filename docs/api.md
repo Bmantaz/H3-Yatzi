@@ -578,7 +578,7 @@ Kontrakten er klar til deling med Frederik, men hans accept og den faktiske tilk
 
 ## Kommende kontrakt for #44
 
-**Aftalt i trin 1 – implementeret og lokalt slutkontrolleret gennem trin 8.** GitHub-aflevering med PR, merge og grøn CI følger senere. Spilsvar, HTTP-kontekst, rotation, slutstatus, vindere og controllerudsendelser nedenfor er nu implementeret og automatisk kontrolleret. `/new` bruger fortsat navn, og første lobbystart ingen body. Omkamp er implementeret med den aftalte gameId-/playerId-body, og frontenden bruger nu denne kontrakt. Eksemplerne er kontrakt-/acceptgrundlag med illustrative GUID'er, ikke optagede netværksforløb. Se [arbejdsplanen og kontrolresultaterne](game-lifecycle.md#slutkontrol-af-44-i-trin-8).
+**Aftalt i trin 1 – implementeret og lokalt slutkontrolleret gennem trin 8.** Afleverings-, merge- og CI-status dokumenteres i [PR #87](https://github.com/Bmantaz/H3-Yatzi/pull/87). Spilsvar, HTTP-kontekst, rotation, slutstatus, vindere og controllerudsendelser nedenfor er nu implementeret og automatisk kontrolleret. `/new` bruger fortsat navn, og første lobbystart ingen body. Omkamp er implementeret med den aftalte gameId-/playerId-body, og frontenden bruger nu denne kontrakt. Eksemplerne er kontrakt-/acceptgrundlag med illustrative GUID'er, ikke optagede netværksforløb. Se [arbejdsplanen og kontrolresultaterne](game-lifecycle.md#slutkontrol-af-44-i-trin-8).
 
 ### Ruter og request-body
 

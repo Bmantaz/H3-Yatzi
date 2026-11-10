@@ -110,7 +110,7 @@ LobbySession genkontrollerer binding og aktuel forbindelse under lobbylåsen og 
 | #59 | Lobby, parring, genforbindelse, minimal start og identitetskontrol i Oplà-handlinger. |
 | #61 | Browser-bro mellem USB/Web Serial og `/ws/opla`. |
 | #35 og #42 | Frontendens rigtige API-kald og løbende visning af ændringer. |
-| #44 | Implementeret og lokalt kontrolleret: næste tur, rotation, END, vindere, HTTP-kontekst, omkamp og frontend. GitHub-aflevering følger senere. |
+| #44 | Implementeret og lokalt kontrolleret: næste tur, rotation, END, vindere, HTTP-kontekst, omkamp og frontend. Afleverings-, merge- og CI-status dokumenteres i [PR #87](https://github.com/Bmantaz/H3-Yatzi/pull/87). |
 | #43 | Samlet fysisk test med Oplà, browser, server og frontend. |
 
 `/ws/opla` bruger lobbyens rigtige parring fra #59. `/ws/spike` er fortsat et særskilt ekko-endpoint. Backendtests og lokal in-memory HTTP-/WebSocket-kontrol dokumenterer ikke en ny fysisk test.
